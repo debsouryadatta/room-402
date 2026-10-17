@@ -7,6 +7,7 @@ import { RUN_TIME_LIMIT_MS, RUN_TURN_LIMIT, type BuiltHouse, type SandboxApi } f
 // The minimum the loop needs from a game run (src/game.ts Run satisfies this).
 export interface AgentRun {
   agentToken?: string;
+  countTurn?(): void;
   id: string;
   isOver(): boolean;
 }
@@ -195,6 +196,7 @@ export async function runAgent(run: AgentRun, house: BuiltHouse, model: string, 
       break;
     }
     stats.turns++;
+    run.countTurn?.();
     const u = res.usage ?? {};
     stats.promptTokens += u.prompt_tokens ?? 0;
     stats.completionTokens += u.completion_tokens ?? 0;
