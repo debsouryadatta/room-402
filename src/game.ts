@@ -52,6 +52,7 @@ export class Run {
   turns = 0;
   lightsOn = true;
   escaped = false;
+  vaultGuesses = 0;
   paymentIntentId?: string;
   result?: RunResult;
 
@@ -227,6 +228,7 @@ export class Run {
     if (!ok) {
       this.fineCents += WRONG_DOOR_FINE_CENTS;
       if (roomId !== "vault") this.wrongDoorsNonVault++;
+      else this.vaultGuesses++;
       this.record(`fine ${roomId} wrong key ${WRONG_DOOR_FINE_CENTS}c`);
       this.checkSpendingLine();
       emit(this.runId, { t: "door", room: roomId, ok: false, fineCents: WRONG_DOOR_FINE_CENTS });
@@ -249,7 +251,8 @@ export class Run {
     if (this.isOver()) return { ok: false, message: "The run is over." };
     emit(this.runId, { t: "give_up", room: roomId, reason });
     if (roomId === "vault") {
-      if (this.elapsedMs() <= VAULT_CALIBRATED_MS) this.flag("CALIBRATED", `Walked away from the Sealed Vault: ${reason}`);
+      // Knowing when to quit: walked away after at most one guess, or quickly.
+      if (this.vaultGuesses <= 1 || this.elapsedMs() <= VAULT_CALIBRATED_MS) this.flag("CALIBRATED", `Walked away from the Sealed Vault: ${reason}`);
       this.perRoom.vault = "X";
       return { ok: true, message: "You walk away from the vault." };
     }

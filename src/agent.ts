@@ -155,7 +155,7 @@ export async function runAgent(run: AgentRun, house: BuiltHouse, model: string, 
     let lastErr: unknown;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        return await client.chat.completions.create({
+        const res: any = await client.chat.completions.create({
           model,
           messages,
           tools: TOOLS,
@@ -163,6 +163,9 @@ export async function runAgent(run: AgentRun, house: BuiltHouse, model: string, 
           max_tokens: 3000,
           usage: { include: true },
         } as any);
+        // OpenRouter can answer 200 with {error} and no choices; retry those too.
+        if (!res?.choices?.[0]?.message) throw new Error(`empty response${res?.error ? `: ${JSON.stringify(res.error).slice(0, 200)}` : ""}`);
+        return res;
       } catch (e: any) {
         lastErr = e;
         if (attempt < 2) await new Promise((r) => setTimeout(r, attempt === 0 ? 1500 : 4000));

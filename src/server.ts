@@ -93,11 +93,34 @@ app.post("/giveup", async (c) => {
 
 // ---------- spectator ----------
 
+// "/" is the landing page (falls back to the arena); "/live" is the live arena.
 app.get("/", (c) => {
+  for (const f of ["public/landing.html", "public/index.html"]) {
+    try {
+      return c.html(readFileSync(f, "utf8"));
+    } catch {}
+  }
+  return c.html("<h1>Room 402</h1>");
+});
+app.get("/live", (c) => {
   try {
     return c.html(readFileSync("public/index.html", "utf8"));
   } catch {
-    return c.html("<h1>Room 402</h1><p>Spectator page not built yet.</p>");
+    return c.html("<h1>Room 402</h1><p>Arena page not built yet.</p>");
+  }
+});
+app.get("/landing/:file", (c) => {
+  const file = c.req.param("file");
+  if (!/^[\w.-]+$/.test(file) || file.startsWith(".")) return c.notFound();
+  const types: Record<string, string> = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", svg: "image/svg+xml", gif: "image/gif" };
+  const type = types[file.split(".").pop()!.toLowerCase()];
+  if (!type) return c.notFound();
+  try {
+    c.header("Content-Type", type);
+    c.header("Cache-Control", "public, max-age=3600");
+    return c.body(readFileSync(`public/landing/${file}`));
+  } catch {
+    return c.notFound();
   }
 });
 

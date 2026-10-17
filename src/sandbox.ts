@@ -42,8 +42,16 @@ async function exec(cmd: string, timeoutMs = 60_000): Promise<ExecResult> {
   const started = Date.now();
   try {
     const sb = await getBox();
-    const r = await sb.runCommand("bash", ["-lc", cmd], { timeoutMs, stdin: "" });
+    // The SDK timeout only covers the request headers, so bound the command inside the VM
+    // (coreutils timeout, then SIGKILL) and also race a hard client-side deadline.
+    const secs = Math.max(5, Math.floor(timeoutMs / 1000) - 3);
+    const call = sb.runCommand("timeout", ["-k", "3", String(secs), "bash", "-lc", cmd], { timeoutMs, stdin: "" });
+    const deadline = new Promise<never>((_, rej) =>
+      setTimeout(() => rej(new Error(`command timed out after ${Math.round(timeoutMs / 1000)}s`)), timeoutMs + 5_000),
+    );
+    const r = await Promise.race([call, deadline]);
     const res = r.result;
+    if (res.exit_code === 124 || res.exit_code === 137) res.stderr = `${res.stderr ?? ""}\n[timed out after ${secs}s: command killed]`;
     return {
       stdout: res.stdout ?? "",
       stderr: (res.stderr ?? "") + (res.error ? `\n${res.error}` : ""),
@@ -58,7 +66,10 @@ async function exec(cmd: string, timeoutMs = 60_000): Promise<ExecResult> {
 async function install(house: BuiltHouse) {
   const sb = await getBox();
   const wipe = await exec(
-    `pkill -f '[/]opt/[.]house/' 2>/dev/null; pkill -f '[h]ouse_server' 2>/dev/null; sleep 0.3; rm -rf /room /var/log/house /opt/.house; mkdir -p /room; echo wiped`,
+    "pkill -f '[/]opt/[.]house/'; pkill -f '[h]ouse_server'; pkill -f '[h]ttp.server'; sleep 0.3; " +
+      "pkill -x sleep; pkill -f '[s]low.py'; pkill -9 -f '[p]ython3'; pkill -9 -x grep; pkill -9 -x find; " +
+      "rm -rf /room /var/log/house /opt/.house /tmp/* /tmp/.[!.]* /var/tmp/* /root/*.py /root/*.txt /root/*.out 2>/dev/null; " +
+      "mkdir -p /room; echo wiped",
     30_000,
   );
   if (!wipe.stdout.includes("wiped")) throw new Error(`wipe failed: ${wipe.stderr}`);

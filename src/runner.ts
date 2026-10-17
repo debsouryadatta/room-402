@@ -8,6 +8,8 @@ import { sandbox } from "./sandbox.js";
 export const MODELS = [
   { id: "anthropic/claude-haiku-5.5", label: "Claude Haiku 5.5" },
   { id: "openai/gpt-6-luna", label: "GPT-6 Luna" },
+  { id: "anthropic/claude-sonnet-5.5", label: "Claude Sonnet 5.5" },
+  { id: "openai/gpt-6.1-sol", label: "GPT-6.1 Sol" },
 ];
 
 let busy = false; // one sandbox => one run at a time
