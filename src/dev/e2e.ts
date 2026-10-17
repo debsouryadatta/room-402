@@ -2,11 +2,13 @@
 //
 //   npx tsx src/dev/e2e.ts                 spawn `npm start` on PORT=3100, run gpt-6-luna seed 402, verify everything
 //   npx tsx src/dev/e2e.ts --base URL      same, but against an already-running server (no spawn)
-//   npx tsx src/dev/e2e.ts --quick [--base URL] [--room vault --tier nudge]
-//                                          only the HTTP 402 flow against the active run (this spends the agent's money)
+//   npx tsx src/dev/e2e.ts --quick [--base URL]
+//                                          no spend: the agent routes (/hint 402 flow, /pay, /door, ...) must answer 404
+//                                          without the run's x-run-token, and no token may leak into /api/state
 //
 // Options: --model ID (default openai/gpt-6-luna), --seed N (default 402),
 //          --check URL (extra servers whose /api/state must show no active run; repeatable).
+// Operator calls send x-admin-token when ROOM402_ADMIN_TOKEN is set.
 import "../env.js";
 import { spawn, type ChildProcess } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -33,6 +35,7 @@ const MODEL = opt("model", "openai/gpt-6-luna")!;
 const SEED = Number(opt("seed", "402"));
 const RUN_DEADLINE_MS = 13 * 60_000;
 const SETUP_TIMEOUT_MS = 5 * 60_000;
+const ADMIN = process.env.ROOM402_ADMIN_TOKEN || "";
 const LOG_FILE = join(tmpdir(), `room402-e2e-server-${Date.now()}.log`);
 
 // ---------- secrets: scan for them, never print them ----------
@@ -90,7 +93,7 @@ function printTable() {
 async function req(method: string, path: string, body?: unknown, timeoutMs = 15_000) {
   const res = await fetch(`${BASE}${path}`, {
     method,
-    headers: body !== undefined ? { "content-type": "application/json" } : undefined,
+    headers: { ...(body !== undefined ? { "content-type": "application/json" } : {}), ...(ADMIN && path.startsWith("/api/") ? { "x-admin-token": ADMIN } : {}) },
     body: body !== undefined ? JSON.stringify(body) : undefined,
     signal: AbortSignal.timeout(timeoutMs),
   });
@@ -201,63 +204,73 @@ function consumeEvents(onEvent: (e: Ev) => void, signal: AbortSignal) {
   })();
 }
 
-// ---------- quick: HTTP 402 flow against the active run ----------
+// ---------- quick: agent routes are locked to the run's own agent loop ----------
+
+/** No money moves: every agent-facing route must 404 without the per-run x-run-token. */
+async function lockdownChecks(runId: string | null, label = "") {
+  const q = runId ? `?run=${encodeURIComponent(runId)}` : "";
+  const body = (extra: Record<string, unknown>) => ({ ...(runId ? { run: runId } : {}), ...extra });
+  const probes: [string, string, unknown?][] = [
+    ["GET", `/hint/house/nudge${q}`],
+    ["POST", `/pay${q}`, body({ invoice_id: "inv_doesnotexist" })],
+    ["POST", `/door${q}`, body({ room: "house", key: "a-b-c-d" })],
+    ["POST", `/approval${q}`, body({ amount_cents: 100, reason: "e2e probe" })],
+    ["GET", `/approval/apr_doesnotexist${q}`],
+    ["POST", `/giveup${q}`, body({ room: "vault", reason: "e2e probe" })],
+  ];
+  const bad: string[] = [];
+  for (const [m, path, b] of probes) {
+    for (const token of [undefined, "0".repeat(32)]) {
+      const res = await fetch(`${BASE}${path}`, {
+        method: m,
+        headers: { ...(b ? { "content-type": "application/json" } : {}), ...(token ? { "x-run-token": token } : {}) },
+        body: b ? JSON.stringify(b) : undefined,
+        signal: AbortSignal.timeout(10_000),
+      }).catch(() => null);
+      if (!res || res.status !== 404) bad.push(`${m} ${path.split("?")[0]}${token ? " (wrong token)" : ""} -> ${res?.status ?? "net err"}`);
+      if (res?.headers.get("www-authenticate")) bad.push(`${path.split("?")[0]} sent WWW-Authenticate without a token`);
+    }
+  }
+  check(`agent routes 404 without x-run-token${label}`, bad.length === 0, bad.join("; ") || `${probes.length * 2} probes`);
+}
+
+/** The agent token is 32 hex chars; it must never reach public endpoints. */
+function tokenLeaks(text: string) {
+  return /agentToken|x-run-token|"(?:run_?)?token"\s*:/i.test(text) || /(?<![0-9a-f])[0-9a-f]{32}(?![0-9a-f])/.test(text);
+}
 
 async function quick() {
-  log(`quick 402 check against ${BASE}`);
+  log(`quick lockdown check against ${BASE}`);
   const st = await req("GET", "/api/state").catch((e) => ({ status: 0, json: null, text: String(e) }) as any);
   const run = st.json?.run;
-  check("GET /api/state has an active run", st.status === 200 && !!run && !run.over, run ? `run ${run.runId} over=${run.over}` : `HTTP ${st.status}`);
-  if (!run || run.over) return;
-  const q = `run=${encodeURIComponent(run.runId)}`;
-
-  const rooms: string[] = opt("room") ? [opt("room")!] : ["vault", ...(run.rooms ?? []).map((r: any) => r.id).filter((id: string) => id !== "vault" && id !== "exit")];
-  const tiers: string[] = opt("tier") ? [opt("tier")!] : ["nudge", "clue", "answer"];
-  let first: Awaited<ReturnType<typeof req>> | null = null;
-  let room = "",
-    tier = "";
-  outer: for (const r of rooms)
-    for (const t of tiers) {
-      const res = await req("GET", `/hint/${r}/${t}?${q}`);
-      if (res.status === 402) {
-        first = res;
-        room = r;
-        tier = t;
-        break outer;
-      }
-    }
-  if (!first) return check("GET /hint returns 402", false, "no unpaid room/tier answered 402");
-  const www = first.headers.get("www-authenticate") ?? "";
-  const inv = first.json?.invoice_id;
-  check(`GET /hint/${room}/${tier} -> 402`, true, `price_cents=${first.json?.price_cents}`);
-  check("402 has WWW-Authenticate: Payment ... invoice_id", /^Payment\b/i.test(www) && !!inv && www.includes(inv), www);
-  check("402 body shape (error, invoice_id, price_cents, price_usd, pay_with)", first.json?.error === "payment_required" && typeof inv === "string" && Number.isInteger(first.json?.price_cents) && typeof first.json?.price_usd === "string" && typeof first.json?.pay_with === "string", JSON.stringify(first.json));
-
-  const bogus = await req("POST", `/pay?${q}`, { run: run.runId, invoice_id: "inv_doesnotexist" });
-  check("POST /pay unknown invoice -> 402 ok:false", bogus.status === 402 && bogus.json?.ok === false, `HTTP ${bogus.status} ${bogus.text.slice(0, 80)}`);
-
-  const pay = await req("POST", `/pay?${q}`, { run: run.runId, invoice_id: inv });
-  check("POST /pay -> 200 ok:true with hint", pay.status === 200 && pay.json?.ok === true && typeof pay.json?.hint === "string", `HTTP ${pay.status} charged=${pay.json?.charged_cents} spent=${pay.json?.spent_cents} remaining=${pay.json?.remaining_cents}`);
-  check("pay charged == invoice price", pay.json?.charged_cents === first.json?.price_cents, `${pay.json?.charged_cents} vs ${first.json?.price_cents}`);
-
-  const again = await req("POST", `/pay?${q}`, { run: run.runId, invoice_id: inv });
-  check("paying same invoice twice charges 0", again.json?.ok === true && again.json?.charged_cents === 0, `charged=${again.json?.charged_cents}`);
-
-  const after = await req("GET", `/hint/${room}/${tier}?${q}`);
-  check("GET /hint after pay -> 200 with hint", after.status === 200 && typeof after.json?.hint === "string" && after.json.hint.length > 0, `HTTP ${after.status}`);
-
-  const nf = await req("GET", `/hint/nowhere/nudge?${q}`);
-  check("GET /hint bad room -> 404", nf.status === 404, `HTTP ${nf.status}`);
-  const all = [first.text, pay.text, again.text, after.text, bogus.text].join("\n");
-  const leaks = findSecrets(all + www);
-  check("no secrets in 402/pay/hint responses", leaks.length === 0, leaks.join(", "));
+  check("GET /api/state", st.status === 200, run ? `run ${run.runId} over=${run.over}` : `HTTP ${st.status}, no run`);
+  await lockdownChecks(run?.runId ?? null, run ? " (active run id)" : " (no run)");
+  check("no agent token in /api/state", !tokenLeaks(st.text ?? ""), "");
+  const lb = await req("GET", "/api/leaderboard").catch(() => null);
+  check("no agent token in /api/leaderboard", !!lb && !tokenLeaks(lb.text), lb ? `HTTP ${lb.status}` : "unreachable");
+  const leaks = findSecrets(`${st.text}\n${lb?.text ?? ""}`);
+  check("no secrets in /api/state or /api/leaderboard", leaks.length === 0, leaks.join(", "));
+  if (ADMIN) {
+    const r = await fetch(`${BASE}/api/lights`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}", signal: AbortSignal.timeout(5000) }).catch(() => null);
+    check("operator route without x-admin-token -> 401", r?.status === 401, `HTTP ${r?.status}`);
+  } else check("operator routes need x-admin-token", null, "ROOM402_ADMIN_TOKEN not set locally");
 }
 
 // ---------- full run ----------
 
 async function full() {
   // 1. Do not collide with another Room 402 server using the single sandbox.
-  const others = [...new Set(["http://127.0.0.1:3000", "http://127.0.0.1:3500", ...opts("check"), ...(process.env.ROOM402_INTEGRATOR_URL ? [process.env.ROOM402_INTEGRATOR_URL] : [])])].filter((u) => !u.startsWith(BASE));
+  const sh = (cmd: string, args: string[]) =>
+    new Promise<string>((res) => {
+      const p = spawn(cmd, args);
+      let out = "";
+      p.stdout.on("data", (b) => (out += b));
+      p.on("close", () => res(out));
+      p.on("error", () => res(""));
+    });
+  // Every local node listener is a candidate Room 402 server (the integrator's port is not fixed).
+  const ports = [...(await sh("lsof", ["-nP", "-iTCP", "-sTCP:LISTEN", "-c", "node"])).matchAll(/:(\d{4,5}) \(LISTEN\)/g)].map((m) => m[1]);
+  const others = [...new Set(["http://127.0.0.1:3000", "http://127.0.0.1:3500", "http://127.0.0.1:4020", ...ports.map((p) => `http://127.0.0.1:${p}`), ...opts("check"), ...(process.env.ROOM402_INTEGRATOR_URL ? [process.env.ROOM402_INTEGRATOR_URL] : [])])].filter((u) => !u.startsWith(BASE));
   for (const u of others) {
     const busy = await activeRunAt(u);
     if (busy) {
@@ -265,17 +278,11 @@ async function full() {
       return;
     }
   }
-  // Dev scripts that install into the same sandbox.
-  const ps = await new Promise<string>((res) => {
-    const p = spawn("ps", ["-axo", "pid,command"]);
-    let out = "";
-    p.stdout.on("data", (b) => (out += b));
-    p.on("close", () => res(out));
-    p.on("error", () => res(""));
-  });
-  const sandboxUsers = ps.split("\n").filter((l) => /src\/dev\/(try-house|agent-smoke)\.ts/.test(l) && !l.includes("npm exec"));
+  // Any other tsx script in this repo (try-house, agent-smoke, ad-hoc installs) may be using the sandbox.
+  const ps = await sh("ps", ["-axo", "pid,command"]);
+  const sandboxUsers = ps.split("\n").filter((l) => /node_modules\/\.bin\/tsx\s/.test(l) && !/tsx (watch )?src\/server\.ts|src\/dev\/e2e\.ts/.test(l));
   if (sandboxUsers.length) {
-    check("no other Room 402 run active", false, `sandbox in use by: ${sandboxUsers.map((l) => l.trim().split(/\s+/).slice(-2).join(" ")).join("; ")}`);
+    check("no other Room 402 run active", false, `sandbox maybe in use by: ${sandboxUsers.map((l) => l.trim().split(/\s+/).slice(-1)[0]).join("; ")}`);
     return;
   }
   check("no other Room 402 run active", true, `checked ${others.join(", ")} and dev scripts`);
@@ -332,12 +339,22 @@ async function full() {
   }
   runId = start.json?.runId ?? null;
   check("POST /api/run -> {runId}", start.status === 200 && !!runId, `HTTP ${start.status} in ${Math.round((Date.now() - t0) / 1000)}s ${runId ?? start.text.slice(0, 200)}`);
-  if (!runId) return;
+  if (!runId) {
+    await sleep(500);
+    ac.abort();
+    const setup = events.filter((e) => e.t === "error").map((e) => e.message);
+    check("run setup (sandbox install, egress, Stripe hold)", false, setup.join(" | ") || "no error event");
+    return finishSecretChecks(events, null);
+  }
   const tRun = Date.now();
 
   // Concurrency guard: a second run must be refused while this one is live.
   const dup = await req("POST", "/api/run", { model: MODEL, seed: SEED }, 30_000).catch(() => null);
   check("second POST /api/run while running -> 409", dup?.status === 409, `HTTP ${dup?.status} ${dup?.text.slice(0, 80)}`);
+  // Outsiders (spectators, the judge's laptop) cannot act as the agent.
+  await lockdownChecks(runId, " (live run)");
+  const live = await req("GET", "/api/state");
+  check("no agent token in /api/state (live run)", !tokenLeaks(live.text), "");
 
   // 4. Wait for run_end.
   const timer = sleep(RUN_DEADLINE_MS).then(() => "timeout");
@@ -446,6 +463,9 @@ function finishSecretChecks(events: Ev[], runId: string | null) {
     if (hits.length) leaks.push(`${e.t}@${e.runId === runId ? "run" : e.runId}: ${hits.join("/")}`);
   }
   check("no secret-looking strings in SSE events", leaks.length === 0, leaks.slice(0, 5).join("; ") || `${events.length} events scanned`);
+  // Agent output (cmd/cmd_result/thought) may legitimately contain hex digests; scan the server-built events.
+  const tok = events.filter((e) => !["cmd", "cmd_result", "thought"].includes(e.t) && tokenLeaks(JSON.stringify(e))).map((e) => e.t);
+  check("no agent token in server-built SSE events", tok.length === 0, tok.join(", "));
   if (SPAWN) {
     const hits = findSecrets(serverLog);
     check("no secrets in server stdout/stderr", hits.length === 0, hits.join(", "));

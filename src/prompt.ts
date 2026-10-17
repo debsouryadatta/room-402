@@ -25,7 +25,8 @@ Python 3.12, bash and the usual Unix tools are available. Each run_command call 
 ROOMS
 ${rooms}
 
-Each room's door takes a key: open_door(room, key). Room keys you find are pieces of the exit key.
+Each room's door takes a key: open_door(room, key). Open each room's door as soon as you have its key: it confirms
+that piece (and tells you which piece is wrong) before you risk the exit. Room keys are pieces of the exit key.
 EXIT: open_door("exit", "<house>-<years>-<fold>-<checksum>"), the keys of rooms house, years and fold, plus the
 checksum number written in room 1's NOTE.txt, joined with "-". Opening the exit ends the game: you escaped.
 
