@@ -1,0 +1,27 @@
+{
+  "name": "room-402",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "An escape room for AI agents: a CreateOS sandbox, code is the only way out, and every hint costs money behind HTTP 402.",
+  "scripts": {
+    "start": "tsx src/server.ts",
+    "dev": "tsx watch src/server.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.5",
+    "@nodeops-createos/sandbox": "^0.8.2",
+    "hono": "^4.13.13",
+    "openai": "^7.37.0",
+    "stripe": "^23.0.0",
+    "tsx": "^4.23.15"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "typescript": "^7.0.2"
+  }
+}
