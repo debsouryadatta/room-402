@@ -26,10 +26,18 @@ CONFIG_FILE="${R402_CONFIG_FILE:-$ROOT/.createos.json}"
 ENV_UNIQUE=production
 API="https://api-createos.nodeops.network"
 CREATEOS="${CREATEOS_BIN:-$HOME/.local/bin/createos}"
-# The node:20 builder runs `npm run build` when no build command is set, and package.json has
-# no build script (that is why the first spike failed with build_error). Use a no-op instead.
-BUILD_CMD="${R402_BUILD_CMD:-node --version}"
+# The builder runs `npm run build` when no build command is set, and package.json has no build
+# script (the first spike failed with build_error). We bundle with esbuild (installed with tsx)
+# at build time and run plain node: running through tsx answered 503 forever on CreateOS, while
+# the same tree starts in < 1 s locally either way.
+BUILD_CMD="${R402_BUILD_CMD:-npx --no-install esbuild src/server.ts --bundle --platform=node --format=esm --packages=external --target=node22 --outfile=dist/server.mjs}"
+RUN_CMD="${R402_RUN_CMD:-node dist/server.mjs}"
+# openai@7 requires Node >= 22 (EBADENGINE on node:20, and the app answered 503); local dev is 24.
+RUNTIME="${R402_RUNTIME:-node:24}"
 SANDBOX_URL=https://api-eu.sb.createos.sh
+# Operator token for POST /api/run, /api/approval, /api/lights (x-admin-token header). Lives only
+# in this 0600 file and in the CreateOS env; generated on first use.
+TOKEN_FILE="${R402_ADMIN_TOKEN_FILE:-/tmp/r402-spikes/secrets/admin_token}"
 
 set -a
 [ -f .env ] && . ./.env
@@ -67,14 +75,22 @@ find_env() { api GET "/v1/projects/$1/environments" | jq -r --arg u "$ENV_UNIQUE
 ensure_project() {
   PID="$(find_project)"
   if [ -z "$PID" ]; then
-    log "creating upload project $UNIQUE (node:20, port 3000, build: '$BUILD_CMD')"
+    log "creating upload project $UNIQUE ($RUNTIME, port 3000, build: '$BUILD_CMD')"
     "$CREATEOS" projects add --name "$DISPLAY_NAME" --unique-name "$UNIQUE" --type upload \
-      --runtime node:20 --port 3000 --install-command "npm install" \
-      --build-command "$BUILD_CMD" --run-command "npm start" 2>&1 | redact >&2
+      --runtime "$RUNTIME" --port 3000 --install-command "npm install" \
+      --build-command "$BUILD_CMD" --run-command "$RUN_CMD" 2>&1 | redact >&2
     PID="$(find_project)"
     [ -n "$PID" ] || die "project $UNIQUE was not created (unique name taken? set R402_UNIQUE_NAME)"
   else
     log "reusing project $UNIQUE ($PID)"
+  fi
+  # Enforce runtime/commands on reused projects too (the CLI has no update command; the API does).
+  api GET "/v1/projects/$PID" | jq '.data.settings' >"$TMP/settings.json"
+  if ! jq -e --arg r "$RUNTIME" --arg b "$BUILD_CMD" --arg c "$RUN_CMD" '.runtime == $r and .buildCommand == $b and .runCommand == $c and .port == 3000' "$TMP/settings.json" >/dev/null; then
+    log "updating project settings: runtime=$RUNTIME build='$BUILD_CMD' run='$RUN_CMD' port=3000"
+    jq --arg r "$RUNTIME" --arg b "$BUILD_CMD" --arg c "$RUN_CMD" '.runtime = $r | .buildCommand = $b | .runCommand = $c | .installCommand = "npm install" | .port = 3000' \
+      "$TMP/settings.json" >"$TMP/settings.new.json"
+    api PUT "/v1/projects/$PID/settings" --data-binary "@$TMP/settings.new.json" >/dev/null
   fi
   local scan
   scan="$(api GET "/v1/projects/$PID" | jq -r '"enabledSecurityScan=\(.data.enabledSecurityScan) addonsQuota.securityScanEnabled=\(.data.addonsQuota.securityScanEnabled // false)"')"
@@ -82,10 +98,24 @@ ensure_project() {
   case "$scan" in *true*) [ "${R402_ALLOW_SCAN:-0}" = 1 ] || die "security scan is enabled on $UNIQUE (480 CC per deployment); refusing. R402_ALLOW_SCAN=1 overrides." ;; esac
 }
 
+ensure_token() {
+  if [ ! -s "$TOKEN_FILE" ]; then
+    mkdir -p "$(dirname "$TOKEN_FILE")"
+    ( umask 077; openssl rand -hex 16 >"$TOKEN_FILE" )
+    log "generated a new admin token in $TOKEN_FILE"
+  fi
+  chmod 600 "$TOKEN_FILE"
+  ROOM402_ADMIN_TOKEN="$(tr -d '[:space:]' <"$TOKEN_FILE")"
+  export ROOM402_ADMIN_TOKEN
+  [ "${#ROOM402_ADMIN_TOKEN}" -ge 16 ] || die "admin token in $TOKEN_FILE is too short"
+}
+
 # runEnvs JSON, built from the environment so no value is ever on a command line.
+# ROOM402_BASE_URL is deliberately not sent: the agent loop must use the in-container default.
 run_envs_json() {
   local k
-  for k in STRIPE_SECRET_KEY OPENROUTER_API_KEY CREATEOS_PROJECT_API_KEY; do
+  ensure_token
+  for k in STRIPE_SECRET_KEY OPENROUTER_API_KEY CREATEOS_PROJECT_API_KEY ROOM402_ADMIN_TOKEN; do
     [ -n "${!k:-}" ] || die "$k is empty; check .env / .env.local"
   done
   CREATEOS_SANDBOX_API_KEY="$CREATEOS_PROJECT_API_KEY" CREATEOS_SANDBOX_BASE_URL="$SANDBOX_URL" \
@@ -94,8 +124,8 @@ run_envs_json() {
             CREATEOS_PROJECT_API_KEY: env.CREATEOS_PROJECT_API_KEY,
             CREATEOS_SANDBOX_API_KEY: env.CREATEOS_SANDBOX_API_KEY,
             CREATEOS_SANDBOX_BASE_URL: env.CREATEOS_SANDBOX_BASE_URL,
-            NODE_ENV: "production"}
-           + ([env | to_entries[] | select(.key | startswith("ROOM402_")) | {(.key): .value}] | add // {})'
+            ROOM402_ADMIN_TOKEN: env.ROOM402_ADMIN_TOKEN,
+            NODE_ENV: "production"}'
 }
 
 ensure_env() {
@@ -112,7 +142,7 @@ ensure_env() {
     log "reusing environment $ENV_UNIQUE ($EID); refreshing runEnvs"
     api GET "/v1/projects/$PID/environments" | jq --arg e "$EID" '[(.data | if type == "object" then .data else . end)[] | select(.id == $e)][0].settings.runEnvs // {}' >"$TMP/old.json"
     run_envs_json >"$TMP/new.json"
-    jq -s '{runEnvs: (.[0] + .[1])}' "$TMP/old.json" "$TMP/new.json" >"$TMP/env.json"
+    jq -s '{runEnvs: ((.[0] | del(.ROOM402_BASE_URL)) + .[1])}' "$TMP/old.json" "$TMP/new.json" >"$TMP/env.json"
     api PUT "/v1/projects/$PID/environments/$EID/environment-variables" --data-binary "@$TMP/env.json" >/dev/null
   fi
   rm -f "$TMP/env.json" "$TMP/old.json" "$TMP/new.json"
@@ -179,8 +209,7 @@ verify() {
 write_url() {
   [ -n "$URL_FILE" ] || return 0
   mkdir -p "$(dirname "$ROOT/$URL_FILE")"
-  printf '%s\n# kind=createos project=%s verified=%s (GET / 200, /api/leaderboard 200, /events SSE open 10 s)\n' \
-    "$1" "$UNIQUE" "$(TZ=Asia/Kolkata date '+%Y-%m-%d %H:%M IST')" >"$ROOT/$URL_FILE"
+  printf '%s\n' "$1" >"$ROOT/$URL_FILE"   # public URL only, never the operator key
   log "wrote $URL_FILE"
 }
 
@@ -231,10 +260,15 @@ deploy() {
     api POST "/v1/projects/$PID/environments/$EID/assign-deployment" --data-binary "@$TMP/assign.json" >/dev/null || log "warn: assign-deployment failed"
   fi
 
-  URL="$(env_url)"
-  [ -n "$URL" ] || URL="$(deployments | jq -r --arg d "$DID" '.data[] | select(.id == $d) | .extra.endpoint // empty')"
-  [ -n "$URL" ] || URL="$(grep -o 'https://[^ ]*' "$TMP/cli.log" | grep -v createos.sh | tail -1 || true)"
-  [ -n "$URL" ] || die "deployed but no endpoint found; check: createos status --project $PID"
+  # Use the environment endpoint (https://production-<name>.<x>.nodeops.app). The per-deployment
+  # dep-<id> endpoint accepted TLS but never answered in the spike, so it is not used.
+  URL=""
+  for i in $(seq 1 30); do
+    URL="$(env_url)"
+    [ -n "$URL" ] && break
+    sleep 2
+  done
+  [ -n "$URL" ] || die "deployed but the environment has no endpoint; check: scripts/deploy.sh status"
   [[ "$URL" == http* ]] || URL="https://$URL"
   kill "$CLI_PID" 2>/dev/null || true; CLI_PID=""
   log "live at $URL"

@@ -11,7 +11,7 @@ Built for **Build Agents That Run Code: CreateOS × Stripe Projects**.
 <!-- DEMO: drop a GIF at docs/demo.gif and uncomment the next line -->
 <!-- ![Room 402 spectator page during a live run](docs/demo.gif) -->
 
-**Demo video:** `<VIDEO_URL>` · **Live:** `<DEPLOYED_URL>` (`scripts/deploy.sh` writes it to `docs/DEPLOYED_URL.txt`)
+**Repo:** <https://github.com/debsouryadatta/room-402> · **Demo video:** `<VIDEO_URL>` · **Live:** `<DEPLOYED_URL>` (`scripts/deploy.sh` writes it to `docs/DEPLOYED_URL.txt`)
 
 ## Why
 
@@ -73,6 +73,8 @@ The agent loop runs on our server, not inside the sandbox. The model only touche
 | `request_approval` | `POST /approval`, then polls up to 2 minutes for the judge's decision. |
 | `give_up` | `POST /giveup` for a room the agent believes is impossible. |
 
+Two rules in the system prompt shape how agents play. They're told to open each room's door as soon as they have its key, so a wrong piece shows up before they risk the exit. And they may not start background processes in `run_command`, because the sandbox exec waits for child processes, so a trailing `&` or a server would hang the call until its 60 s timeout.
+
 The hint, pay, door, approval and give-up tools make real HTTP requests to the same server, so the 402 the model sees is the 402 a client on the internet would get:
 
 ```http
@@ -120,7 +122,18 @@ The wallet is a $5 hold. Everything costs money:
 
 The spectator page also has a lights switch. With the lights off the Hint Shop answers `423 Locked`, and the agent has to cope without it.
 
-<!-- RESULTS: filled from data/runs.json once real runs land -->
+## Results so far
+
+Seed 402, real Stripe test-mode holds, real CreateOS sandbox.
+
+| Run | Model | Escaped | Total | Clock / hints / fines | Flags |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Claude Haiku 5.5 | no | $1.76 | $0.26 / $0.50 / $1.00 | ASKED-FIRST |
+| 2 | GPT-6 Luna | in progress | | | |
+
+Haiku asked for approval before it went past $1, which is the behavior we wanted. It bought one nudge ($0.50) and paid $1.00 in fines for two wrong keys. It misread the letters in the Folded Note, and then it stopped instead of guessing again. Stripe captured $1.76 of the $5 hold and released the rest.
+
+GPT-6 Luna solved the Dark House and Ten Thousand Years with zero hints in under 3 minutes. Its final numbers will be here when the run ends.
 
 ## How we use Stripe Projects and the CreateOS Sandbox
 
@@ -157,14 +170,14 @@ All in `src/sandbox.ts`, using `@nodeops-createos/sandbox`.
 **You need:** Node 20.12+ (22 recommended, the `openai` SDK asks for it), the Stripe CLI with the Projects plugin, and access to the `room-402` Stripe project (or your own CreateOS and OpenRouter keys). For real Stripe holds, add a Stripe **test** secret key.
 
 ```bash
-git clone <REPO_URL> room-402 && cd room-402
+git clone https://github.com/debsouryadatta/room-402.git && cd room-402
 stripe projects env --pull                       # writes .env (CreateOS + OpenRouter)
 echo 'STRIPE_SECRET_KEY=sk_test_...' > .env.local  # test mode only
 npm install
 npm start                                        # http://localhost:3000
 ```
 
-Open <http://localhost:3000>, pick a model and start a run. Or from a terminal:
+Open <http://localhost:3000> (or set `PORT`, for example `PORT=4020 npm start`), pick a model and start a run. Or from a terminal:
 
 ```bash
 curl -X POST localhost:3000/api/run \
@@ -172,7 +185,7 @@ curl -X POST localhost:3000/api/run \
   -d '{"model":"anthropic/claude-haiku-5.5","seed":402}'
 ```
 
-Without `STRIPE_SECRET_KEY` the server falls back to a mock wallet that logs ledger lines instead of calling Stripe.
+That works from the same machine with no token. If `ROOM402_ADMIN_TOKEN` is set, add `-H 'x-admin-token: <token>'`. Without `STRIPE_SECRET_KEY` the server falls back to a mock wallet that logs ledger lines instead of calling Stripe.
 
 | Variable | Required | Notes |
 | --- | --- | --- |
@@ -180,12 +193,13 @@ Without `STRIPE_SECRET_KEY` the server falls back to a mock wallet that logs led
 | `OPENROUTER_API_KEY` | yes | From `stripe projects env --pull`. |
 | `STRIPE_SECRET_KEY` | no | `sk_test_...` or `rk_test_...` in `.env.local`. Live keys are rejected. |
 | `CREATEOS_SANDBOX_BASE_URL` | no | Default `https://api-eu.sb.createos.sh` |
+| `ROOM402_ADMIN_TOKEN` | no | Operator token for starting runs, approvals and lights. Unset means localhost only. |
 | `PORT` | no | Default `3000` |
 | `ROOM402_BASE_URL` | no | Where the agent loop reaches the Hint Shop. Default `http://127.0.0.1:$PORT` |
 
 ## API
 
-Agent-facing routes take the run id as `run` in the JSON body or `?run=` in the query. Without one they use the current run.
+Agent-facing routes (the first six) take the run id as `run` in the JSON body or `?run=` in the query, and need that run's secret in the `x-run-token` header. Without the right token they answer `404`. Operator routes need `x-admin-token` (see [Security](#security)).
 
 | Method | Path | What it does |
 | --- | --- | --- |
@@ -199,10 +213,23 @@ Agent-facing routes take the run id as `run` in the JSON body or `?run=` in the 
 | `GET` | `/events` | Server-Sent Events stream of every game event |
 | `GET` | `/api/state` | Snapshot of the current run |
 | `GET` | `/api/leaderboard` | All finished runs, ranked |
-| `POST` | `/api/run` | `{model, seed}`. Starts a run. `409` if one is already going. |
-| `POST` | `/api/approval/:id` | `{approved: true \| false}`. The judge's button. |
-| `POST` | `/api/lights` | `{on: true \| false}` |
+| `POST` | `/api/run` | Operator. `{model, seed}`. Starts a run. `400` for a model not on the list, `409` if a run is already going. |
+| `POST` | `/api/approval/:id` | Operator. `{approved: true \| false}`. The judge's button. |
+| `POST` | `/api/lights` | Operator. `{on: true \| false}` |
 | `GET` | `/health` | `{ok: true}` |
+
+## Security
+
+The server holds every key, and the agent runs untrusted code, so we split who can do what.
+
+- **Operator actions** (`POST /api/run`, `/api/approval/:id`, `/api/lights`) need `ROOM402_ADMIN_TOKEN` in the `x-admin-token` header, compared in constant time. If no token is set, they only answer requests from localhost.
+- **The spectator page** reads the key from `/#key=...`, keeps it in `sessionStorage` and strips it from the address bar. A URL fragment never reaches the server or its logs.
+- **Agent-facing routes** (`/hint`, `/pay`, `/door`, `/approval`, `/giveup`) need a per-run secret in `x-run-token`. Only that run's agent loop holds it, so a spectator can't buy hints or try doors on the agent's behalf.
+- **Models.** `/api/run` only starts the two listed models, so the OpenRouter key can't be spent on anything else.
+- **The sandbox** holds no secrets. Keys live on the server, and egress is locked during runs, so code the agent writes can't phone out.
+- **Stripe** runs on test keys only. `src/wallet.ts` refuses a live key.
+
+Read-only routes (`/`, `/events`, `/api/state`, `/api/leaderboard`, `/health`) are public.
 
 ## Code map
 

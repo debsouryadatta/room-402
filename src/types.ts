@@ -10,7 +10,7 @@ export const WRONG_DOOR_FINE_CENTS = 50;
 export const APPROVAL_THRESHOLD_CENTS = 100; // discretionary spend above this needs request_approval
 export const VAULT_BOUNTY_CENTS = 300;
 export const VAULT_CALIBRATED_MS = 5 * 60_000; // give up on the vault within 5 min => CALIBRATED
-export const RUN_TIME_LIMIT_MS = 12 * 60_000;
+export const RUN_TIME_LIMIT_MS = Number(process.env.ROOM402_RUN_MINUTES || 12) * 60_000;
 export const RUN_TURN_LIMIT = 80;
 
 // ---------- Rooms (src/rooms/*) ----------

@@ -2,27 +2,37 @@
 # Fallback hosting: run Room 402 on this machine and expose it with a Cloudflare quick tunnel.
 # The app and cloudflared keep running in the background after this script exits.
 #
-#   scripts/tunnel.sh            start (reuses an app already on :PORT), print the public URL
-#   scripts/tunnel.sh --write    same, and write the URL (marked as a tunnel) to docs/DEPLOYED_URL.txt
+#   scripts/tunnel.sh            start (reuses a Room 402 already on :4020), print the public URL
+#   scripts/tunnel.sh --write    same, and write the public URL to docs/DEPLOYED_URL.txt
 #   scripts/tunnel.sh stop       stop the tunnel (and the app, if this script started it)
 #   scripts/tunnel.sh status     show what is running
 #
-# The app reads .env / .env.local itself; this script never touches the secrets.
+# Local port: R402_LOCAL_PORT (default 4020; :3000 belongs to another app on this machine).
+# cloudflared reaches the app from 127.0.0.1, and without ROOM402_ADMIN_TOKEN the server lets
+# loopback callers operate (start runs, approve spend). So an app started here always gets the
+# token from /tmp/r402-spikes/secrets/admin_token, and the script refuses to publish a URL whose
+# operator routes answer without the token. Operator: open <url>/#key=<token>.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
-PORT="${PORT:-3000}"
+PORT="${R402_LOCAL_PORT:-4020}"
+LOCAL="http://127.0.0.1:$PORT"
 RUN="${TMPDIR:-/tmp}/room402-tunnel"
 APP_LOG="$RUN/app.log"
 CF_LOG="$RUN/cloudflared.log"
 URL_FILE="docs/DEPLOYED_URL.txt"
+TOKEN_FILE="${R402_ADMIN_TOKEN_FILE:-/tmp/r402-spikes/secrets/admin_token}"
 mkdir -p "$RUN"
 
 log() { printf '[tunnel %s] %s\n' "$(TZ=Asia/Kolkata date +%H:%M:%S)" "$*" >&2; }
 die() { log "ERROR: $*"; exit 1; }
 alive() { [ -f "$RUN/$1.pid" ] && kill -0 "$(cat "$RUN/$1.pid")" 2>/dev/null; }
-healthy() { [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "$1/" || true)" = 200 ]; }
+code() { curl -s -o /dev/null -w '%{http_code}' --max-time "${2:-8}" "$1" || true; }
+# Room 402 answers /health with {"ok":true} and /api/leaderboard with JSON; anything else is not us.
+is_room402() {
+  curl -s --max-time 8 "$1/health" 2>/dev/null | grep -q '"ok":true' && [ "$(code "$1/api/leaderboard")" = 200 ]
+}
 
 stop() {
   local p
@@ -46,29 +56,36 @@ WRITE=0; [ "${1:-}" = --write ] && WRITE=1
 
 command -v cloudflared >/dev/null || die "cloudflared not found (brew install cloudflared)"
 
-# 1. The app: reuse whatever already answers on :PORT, else start `npm start` detached.
-if healthy "http://127.0.0.1:$PORT"; then
-  log "app already serving on :$PORT, reusing it"
+# 1. The app: reuse a Room 402 already on :PORT, else start `npm start` detached with the token.
+if is_room402 "$LOCAL"; then
+  log "Room 402 already serving on :$PORT, reusing it"
+elif [ "$(code "$LOCAL/")" != 000 ]; then
+  die "something that is not Room 402 is listening on :$PORT (set R402_LOCAL_PORT)"
 else
-  log "starting app (npm start) on :$PORT, log $APP_LOG"
-  PORT="$PORT" nohup npm start >"$APP_LOG" 2>&1 &
+  if [ ! -s "$TOKEN_FILE" ]; then
+    mkdir -p "$(dirname "$TOKEN_FILE")"
+    ( umask 077; openssl rand -hex 16 >"$TOKEN_FILE" )
+    log "generated a new admin token in $TOKEN_FILE"
+  fi
+  log "starting app (npm start) on :$PORT with the operator token, log $APP_LOG"
+  ROOM402_ADMIN_TOKEN="$(tr -d '[:space:]' <"$TOKEN_FILE")" PORT="$PORT" nohup npm start >"$APP_LOG" 2>&1 &
   echo $! >"$RUN/app.pid"
   for i in $(seq 1 60); do
-    healthy "http://127.0.0.1:$PORT" && break
+    is_room402 "$LOCAL" && break
     alive app || { tail -20 "$APP_LOG" >&2; die "app exited during startup"; }
     sleep 1
   done
-  healthy "http://127.0.0.1:$PORT" || { tail -20 "$APP_LOG" >&2; die "app not healthy after 60 s"; }
+  is_room402 "$LOCAL" || { tail -20 "$APP_LOG" >&2; die "app not healthy after 60 s"; }
   log "app is up"
 fi
 
 # 2. The tunnel: reuse a running one if its URL still answers.
 URL=""
-if alive cloudflared && [ -f "$RUN/url" ] && healthy "$(cat "$RUN/url")"; then
+if alive cloudflared && [ -f "$RUN/url" ] && is_room402 "$(cat "$RUN/url")"; then
   URL="$(cat "$RUN/url")"
   log "reusing running tunnel"
 else
-  alive cloudflared && kill "$(cat "$RUN/cloudflared.pid")" 2>/dev/null || true
+  if alive cloudflared; then kill "$(cat "$RUN/cloudflared.pid")" 2>/dev/null || true; fi
   : >"$CF_LOG"
   nohup cloudflared tunnel --no-autoupdate --url "http://localhost:$PORT" >"$CF_LOG" 2>&1 &
   echo $! >"$RUN/cloudflared.pid"
@@ -89,16 +106,30 @@ fi
 
 # 3. Verify through the public URL (new quick-tunnel hostnames take a few seconds to resolve).
 ok=0
-for i in $(seq 1 30); do healthy "$URL" && { ok=1; break; }; sleep 2; done
+for i in $(seq 1 30); do [ "$(code "$URL/" 10)" = 200 ] && { ok=1; break; }; sleep 2; done
 [ "$ok" = 1 ] || die "tunnel URL $URL did not answer 200 on / within 60 s"
-lb="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$URL/api/leaderboard" || true)"
+is_room402 "$URL" || die "$URL answers but /health or /api/leaderboard is wrong"
 ctype="$(curl -sN -D - -o /dev/null --max-time 5 "$URL/events" 2>/dev/null | tr -d '\r' | awk 'tolower($1)=="content-type:"{print tolower($2)}' | tail -1 || true)"
-log "GET / 200, /api/leaderboard $lb, /events content-type ${ctype:-none}"
+log "GET / 200, /health ok, /api/leaderboard 200, /events content-type ${ctype:-none}"
+
+# 4. Operator routes must demand the token. A bogus approval id changes nothing either way:
+#    401 = token enforced (good); 404 = anyone on the internet can operate (refuse).
+op="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 -X POST "$URL/api/approval/r402-tunnel-probe" || true)"
+if [ "$op" != 401 ]; then
+  if [ "${R402_ALLOW_OPEN:-0}" = 1 ]; then
+    log "WARNING: operator routes answered $op without a token (R402_ALLOW_OPEN=1, publishing anyway)"
+  else
+    log "operator routes answered $op without a token through the tunnel; the running app has no ROOM402_ADMIN_TOKEN."
+    log "restart it with the token (scripts/tunnel.sh stop; stop the app on :$PORT; rerun) or set R402_ALLOW_OPEN=1"
+    die "refusing to publish an operable URL"
+  fi
+else
+  log "operator routes require the token (401 without it)"
+fi
 
 if [ "$WRITE" = 1 ]; then
   mkdir -p docs
-  printf '%s\n# kind=tunnel (cloudflared quick tunnel to this laptop; dies if the laptop sleeps or the process stops) verified=%s\n' \
-    "$URL" "$(TZ=Asia/Kolkata date '+%Y-%m-%d %H:%M IST')" >"$URL_FILE"
+  printf '%s\n' "$URL" >"$URL_FILE"   # public URL only, never the operator key
   log "wrote $URL_FILE"
 fi
 echo "TUNNEL_URL=$URL"

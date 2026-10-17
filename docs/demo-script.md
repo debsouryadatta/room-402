@@ -2,7 +2,7 @@
 
 Length: 150 seconds. Spoken words: about 340 on one path (VO A, no alt lines), which fits at a calm pace.
 
-Anything in angle brackets gets filled in after the real run: `<MODEL>`, `<SPENT>`, `<DEPLOYED_URL>`, `<REPO_URL>`. Don't say a winner or a dollar total until the run has happened.
+Anything in angle brackets gets filled in after the real run: `<MODEL>`, `<SPENT>`, `<DEPLOYED_URL>`. Don't say a winner or a dollar total until the run has happened.
 
 How to shoot it alone:
 
@@ -213,7 +213,7 @@ Plus the share link: `https://projects.dev/s#v1:createos~project,OpenRouter~api`
 
 - Room 402
 - <DEPLOYED_URL>
-- <REPO_URL>
+- https://github.com/debsouryadatta/room-402
 - Sourya Solo · Build Agents That Run Code (CreateOS x Stripe Projects)
 
 ## Pre-recording checklist
@@ -222,6 +222,7 @@ Plus the share link: `https://projects.dev/s#v1:createos~project,OpenRouter~api`
 - [ ] Decide `<MODEL>` before you start. The page defaults to Claude Haiku 5.5.
 - [ ] At least one completed run already on the leaderboard. It's your backup footage, and the board won't look empty. Don't clear any data.
 - [ ] Tab 1: spectator page at `<DEPLOYED_URL>`, or `http://localhost:3000` after `npm start`. Restart the server after your backup run (locally the leaderboard survives a restart in `data/runs.json`), then reload once so the live feed connects. The status pill should read IDLE. If it shows the last run's end status and the receipt pops up, the server still has that run in memory.
+- [ ] On the deployed page, open it as `<DEPLOYED_URL>/#key=<ROOM402_ADMIN_TOKEN>` so START RUN, APPROVE and LIGHTS OUT work. The page stores the key and removes it from the address bar, but open it off camera anyway. Locally with no token set, localhost works without a key.
 - [ ] Tab 2: Stripe dashboard, test mode on, Payments list open.
 - [ ] Tab 3: CreateOS dashboard on the `room402` sandbox.
 - [ ] Terminal in the project folder, font at 20pt or larger. Run `stripe projects status` once off camera and check the output is safe to show. No `.env` tab open anywhere.
@@ -245,4 +246,3 @@ Plus the share link: `https://projects.dev/s#v1:createos~project,OpenRouter~api`
 - `<MODEL>`: the contestant you ran
 - `<SPENT>`: the captured amount on the receipt
 - `<DEPLOYED_URL>`: from `docs/DEPLOYED_URL.txt`, which `scripts/deploy.sh` writes after a successful CreateOS deploy
-- `<REPO_URL>`: the public repo link

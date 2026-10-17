@@ -53,7 +53,7 @@ If a form asks about MPP: we tried Stripe's Machine Payments Protocol first. The
 | Field | Value |
 |---|---|
 | Demo video URL | `<VIDEO_URL>` |
-| Repo URL | `<REPO_URL>` |
+| Repo URL | https://github.com/debsouryadatta/room-402 |
 | Post URL | `<POST_URL>` |
 | Deployed URL | `<DEPLOYED_URL>` (the CreateOS hosting URL, which `scripts/deploy.sh` writes to `docs/DEPLOYED_URL.txt`) |
 | Stripe Projects share link | https://projects.dev/s#v1:createos~project,OpenRouter~api |
@@ -71,7 +71,7 @@ If a form asks about MPP: we tried Stripe's Machine Payments Protocol first. The
 
 1. Run `stripe whoami` and copy the account id. It should be `acct_1NuDtbSHblgLM35H`.
 2. Run `stripe projects share`. It prints the share link: https://projects.dev/s#v1:createos~project,OpenRouter~api
-3. Paste the repo URL: `<REPO_URL>`.
+3. Paste the repo URL: https://github.com/debsouryadatta/room-402.
 4. Paste the deployed URL: `<DEPLOYED_URL>` (the CreateOS hosting URL, in `docs/DEPLOYED_URL.txt` after `scripts/deploy.sh` runs).
 5. Enter the hackathon code `CreateOS-2026`. It is case-sensitive. Type exactly that: capital C, capital O, capital S, a hyphen, then 2026.
 
@@ -83,4 +83,4 @@ If a form asks about MPP: we tried Stripe's Machine Payments Protocol first. The
 - [ ] Deployed URL responds on `/health`. `curl <DEPLOYED_URL>/health` returns `{"ok":true}`.
 - [ ] Post published and its URL copied in place of `<POST_URL>`.
 - [ ] Submission form fields pasted from this file.
-- [ ] No placeholders left in what you pasted: search for `<VIDEO_URL>`, `<REPO_URL>`, `<POST_URL>`, `<DEPLOYED_URL>` and `<RESULT_HEADLINE>`.
+- [ ] No placeholders left in what you pasted: search for `<VIDEO_URL>`, `<POST_URL>`, `<DEPLOYED_URL>` and `<RESULT_HEADLINE>`.
