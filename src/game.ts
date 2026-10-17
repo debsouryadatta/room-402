@@ -46,6 +46,8 @@ interface Approval {
 
 export class Run {
   readonly runId = id("run");
+  /** Secret shared only with this run's agent loop; required on the agent-facing routes. */
+  readonly agentToken = randomBytes(16).toString("hex");
   readonly startedAt = Date.now();
   turns = 0;
   lightsOn = true;

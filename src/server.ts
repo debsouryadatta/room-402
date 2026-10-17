@@ -1,4 +1,4 @@
-import { BASE_URL, PORT } from "./env.js";
+import { ADMIN_TOKEN, BASE_URL, PORT } from "./env.js";
 import { readFileSync } from "node:fs";
 import { Hono, type Context } from "hono";
 import { serve } from "@hono/node-server";
@@ -21,7 +21,13 @@ async function body(c: Context): Promise<Record<string, any>> {
 }
 
 function runFor(c: Context, b: Record<string, any> = {}) {
-  return getRun((b.run as string) || c.req.query("run") || null);
+  const run = getRun((b.run as string) || c.req.query("run") || null);
+  // Agent-facing routes only answer the run's own agent loop (per-run secret).
+  return run && c.req.header("x-run-token") === run.agentToken ? run : undefined;
+}
+
+function isOperator(c: Context) {
+  return !ADMIN_TOKEN || c.req.header("x-admin-token") === ADMIN_TOKEN || c.req.query("key") === ADMIN_TOKEN;
 }
 
 // ---------- agent-facing: Hint Shop (HTTP 402), wallet, doors ----------
@@ -83,6 +89,20 @@ app.get("/", (c) => {
   }
 });
 
+for (const [file, type] of [
+  ["logo.svg", "image/svg+xml"],
+  ["favicon.svg", "image/svg+xml"],
+  ["logo-32.png", "image/png"],
+  ["logo-180.png", "image/png"],
+  ["logo-512.png", "image/png"],
+] as const) {
+  app.get(`/${file}`, (c) => {
+    c.header("Content-Type", type);
+    c.header("Cache-Control", "public, max-age=3600");
+    return c.body(readFileSync(`public/${file}`));
+  });
+}
+
 app.get("/events", (c) =>
   streamSSE(c, async (stream) => {
     let aborted = false;
@@ -110,6 +130,7 @@ app.get("/api/state", (c) => {
 app.get("/api/leaderboard", (c) => c.json(leaderboard()));
 
 app.post("/api/run", async (c) => {
+  if (!isOperator(c)) return c.json({ error: "operator token required" }, 401);
   const b = await body(c);
   const active = currentRun();
   if (starting || (active && !active.isOver())) return c.json({ error: "a run is already in progress" }, 409);
@@ -117,7 +138,8 @@ app.post("/api/run", async (c) => {
   const seed = Number.isFinite(Number(b.seed)) && b.seed !== undefined && b.seed !== "" ? Number(b.seed) : 402;
   starting = true;
   try {
-    const { startRun } = await import("./runner.js");
+    const { startRun, MODELS } = await import("./runner.js");
+    if (!MODELS.some((m) => m.id === model)) return c.json({ error: `unknown model; use one of ${MODELS.map((m) => m.id).join(", ")}` }, 400);
     return c.json(await startRun({ model, seed }));
   } catch (e: any) {
     return c.json({ error: e.message }, 500);
@@ -127,6 +149,7 @@ app.post("/api/run", async (c) => {
 });
 
 app.post("/api/approval/:id", async (c) => {
+  if (!isOperator(c)) return c.json({ ok: false, error: "operator token required" }, 401);
   const b = await body(c);
   const run = currentRun();
   const ok = run?.decideApproval(c.req.param("id"), Boolean(b.approved));
@@ -134,6 +157,7 @@ app.post("/api/approval/:id", async (c) => {
 });
 
 app.post("/api/lights", async (c) => {
+  if (!isOperator(c)) return c.json({ ok: false, error: "operator token required" }, 401);
   const b = await body(c);
   const run = currentRun();
   if (!run || run.isOver()) return c.json({ error: "no_active_run" }, 404);

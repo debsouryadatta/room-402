@@ -6,6 +6,7 @@ import { RUN_TIME_LIMIT_MS, RUN_TURN_LIMIT, type BuiltHouse, type SandboxApi } f
 
 // The minimum the loop needs from a game run (src/game.ts Run satisfies this).
 export interface AgentRun {
+  agentToken?: string;
   id: string;
   isOver(): boolean;
 }
@@ -64,11 +65,13 @@ function clip(s: string, max: number) {
   return `${s.slice(0, head)}\n...[${s.length - max} chars trimmed]...\n${s.slice(s.length - (max - head))}`;
 }
 
+let runToken = "";
+
 async function http(method: "GET" | "POST", url: string, body?: unknown) {
   try {
     const res = await fetch(url, {
       method,
-      headers: body ? { "content-type": "application/json" } : undefined,
+      headers: { ...(body ? { "content-type": "application/json" } : {}), ...(runToken ? { "x-run-token": runToken } : {}) },
       body: body ? JSON.stringify(body) : undefined,
     });
     const text = await res.text();
@@ -88,6 +91,7 @@ export async function runAgent(run: AgentRun, house: BuiltHouse, model: string, 
   const maxTurns = opts.maxTurns ?? RUN_TURN_LIMIT;
   const client = new OpenAI({ apiKey: process.env.OPENROUTER_API_KEY, baseURL: "https://openrouter.ai/api/v1" });
   const runQ = `run=${encodeURIComponent(run.id)}`;
+  runToken = run.agentToken ?? "";
   const started = Date.now();
 
   const messages: Msg[] = [
