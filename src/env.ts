@@ -8,7 +8,7 @@ for (const file of [".env", ".env.local"]) {
 }
 export {};
 
-/** If set, starting runs, approving spend and lights-out need this token (header x-admin-token or ?key=). */
+/** If set, starting runs, approving spend and lights-out need this token (header x-admin-token; the page reads it from /#key=...). */
 export const ADMIN_TOKEN = process.env.ROOM402_ADMIN_TOKEN || "";
 
 export const PORT = Number(process.env.PORT || 3000);

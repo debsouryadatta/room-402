@@ -2,6 +2,8 @@ import { ADMIN_TOKEN, BASE_URL, PORT } from "./env.js";
 import { readFileSync } from "node:fs";
 import { Hono, type Context } from "hono";
 import { serve } from "@hono/node-server";
+import { getConnInfo } from "@hono/node-server/conninfo";
+import { timingSafeEqual } from "node:crypto";
 import { streamSSE } from "hono/streaming";
 import { recent, subscribe } from "./bus.js";
 import { currentRun, getRun, leaderboard } from "./game.js";
@@ -26,8 +28,18 @@ function runFor(c: Context, b: Record<string, any> = {}) {
   return run && c.req.header("x-run-token") === run.agentToken ? run : undefined;
 }
 
+function isLoopback(c: Context) {
+  const addr = getConnInfo(c).remote.address ?? "";
+  return addr === "127.0.0.1" || addr === "::1" || addr === "::ffff:127.0.0.1";
+}
+
+// Operator actions (start runs, approve spend, lights out). Fail closed: without
+// ROOM402_ADMIN_TOKEN only localhost may act; with it, the x-admin-token header must match.
 function isOperator(c: Context) {
-  return !ADMIN_TOKEN || c.req.header("x-admin-token") === ADMIN_TOKEN || c.req.query("key") === ADMIN_TOKEN;
+  if (!ADMIN_TOKEN) return isLoopback(c);
+  const given = Buffer.from(c.req.header("x-admin-token") ?? "");
+  const want = Buffer.from(ADMIN_TOKEN);
+  return given.length === want.length && timingSafeEqual(given, want);
 }
 
 // ---------- agent-facing: Hint Shop (HTTP 402), wallet, doors ----------

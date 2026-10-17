@@ -337,7 +337,12 @@
   <div class="toast" id="toast"></div>
 
 <script>
-  const OPS_KEY = new URLSearchParams(location.search).get("key") || "";
+  // Operator key: open the page as /#key=<token>. It's kept in sessionStorage and removed from the address bar.
+  const OPS_KEY = (() => {
+    const m = location.hash.match(/key=([^&]+)/);
+    if (m) { sessionStorage.setItem("room402.key", decodeURIComponent(m[1])); history.replaceState(null, "", location.pathname + location.search); }
+    return sessionStorage.getItem("room402.key") || "";
+  })();
   const OPS_HEADERS = Object.assign({ "content-type": "application/json" }, OPS_KEY ? { "x-admin-token": OPS_KEY } : {});
 
 (() => {
