@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="Room 402">
+  <rect width="200" height="200" rx="40" fill="#F6F1E7"/>
+  <g transform="translate(100 100) scale(0.84) translate(-90 -100)">
+    <path fill="#0B0F19" fill-rule="evenodd" transform="translate(-20 0)" d="M54 134V120H12V104L50 60H74V102H86V120H74V134ZM34 102H54V78Z"/>
+    <ellipse cx="100" cy="100" rx="22" ry="35" fill="none" stroke="#0B0F19" stroke-width="15"/>
+    <g fill="#635BFF" transform="translate(100 95) scale(1.1) translate(-100 -92)">
+      <circle cx="100" cy="92" r="7.5"/>
+      <path d="M95.5 95h9l3.5 21h-16z"/>
+    </g>
+    <path fill="none" transform="translate(16 0)" stroke="#0B0F19" stroke-width="17" stroke-linejoin="round" stroke-linecap="round" d="M125 82c2-9 10-15 20-15 11 0 19 7 19 17 0 8-4 13-11 20l-25 22h38"/>
+  </g>
+</svg>
