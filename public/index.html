@@ -51,6 +51,22 @@
   .menu button.item:hover { background: var(--bg-2); }
   .menu .hint { padding: 0 8px 8px; font-size: 12px; color: var(--ink-3); }
 
+  .cb { position: relative; }
+  .cb-btn { display: inline-flex; align-items: center; max-width: 240px; text-align: left; }
+  .cb-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cb-pop { display: none; position: absolute; right: 0; top: 44px; z-index: 35; width: 360px; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 24px rgba(11,13,18,0.08); overflow: hidden; }
+  .cb-pop.open { display: block; }
+  .cb-q { width: 100%; height: 44px; padding: 0 16px; border: 0; border-bottom: 1px solid var(--line); font-size: 15px; outline: none; background: var(--bg); }
+  .cb-list { max-height: 320px; overflow-y: auto; padding: 4px; }
+  .cb-g { padding: 8px 12px 4px; font-size: 12px; font-weight: 500; color: var(--ink-3); }
+  .cb-o { padding: 8px 12px; border-radius: 8px; cursor: pointer; }
+  .cb-o.act { background: var(--bg-2); }
+  .cb-o.cur .cb-n span:first-child { color: var(--accent-ink); }
+  .cb-n { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; font-weight: 500; }
+  .cb-n span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cb-p { flex: none; font-size: 12px; font-weight: 400; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .cb-id { font-size: 12px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cb-empty { padding: 16px; text-align: center; font-size: 13px; color: var(--ink-3); }
   /* page */
   .page { max-width: 1120px; margin: 0 auto; padding: 24px 24px 48px; }
   .notice { display: none; margin-bottom: 16px; padding: 12px 16px; border-radius: 12px; background: var(--warn-soft); color: var(--warn); font-size: 13px; font-weight: 500; }
@@ -162,6 +178,33 @@
   .yes { color: var(--ok); font-weight: 500; } .no { color: var(--bad); font-weight: 500; }
   .legend { margin-top: 8px; font-size: 12px; color: var(--ink-3); }
 
+  /* history */
+  .hrow { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 16px; border: 0; background: none; text-align: left; cursor: pointer; }
+  .hrow + .hrow { border-top: 1px solid var(--line); }
+  .hrow:hover { background: var(--bg-2); }
+  .hrow .mid { flex: 1; min-width: 0; }
+  .hrow .lb { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 15px; font-weight: 500; }
+  .hrow .meta { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-top: 4px; font-size: 12px; color: var(--ink-3); }
+  .hrow .amt { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .overlay.so { place-items: stretch end; padding: 0; }
+  .slide { width: 560px; max-width: 100%; height: 100%; overflow-y: auto; background: var(--bg); padding: 16px 24px 40px; }
+  .slide .back { margin-bottom: 16px; }
+  .slide .sumc { background: var(--bg-2); border-radius: 16px; padding: 20px; }
+  .h-sec { margin-top: 24px; }
+  .h-sec h3 { margin: 0 0 8px; font-size: 15px; font-weight: 600; }
+  .h-steps { display: flex; gap: 8px; flex-wrap: wrap; }
+  .hstep { display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 6px 0 12px; border-radius: 999px; background: var(--bg-2); font-size: 12px; }
+  .note { padding: 12px 16px; border-radius: 12px; background: var(--bg-2); font-size: 13px; color: var(--ink-2); }
+  .te { display: flex; gap: 12px; padding: 8px 0; }
+  .te + .te { border-top: 1px solid var(--line); }
+  .te .t { flex: none; width: 44px; font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; padding-top: 2px; }
+  .te .b { flex: 1; min-width: 0; font-size: 13px; color: var(--ink-2); overflow-wrap: anywhere; }
+  .te .th { color: var(--ink); }
+  .te code { font: 12px/1.6 var(--mono); color: var(--ink); }
+  .te summary { cursor: pointer; font-size: 12px; color: var(--ink-3); }
+  .te pre { margin: 8px 0 0; max-height: 240px; overflow: auto; padding: 12px; border-radius: 8px; background: #0B0D12; color: #C9CED6; font: 12px/1.6 var(--mono); white-space: pre-wrap; word-break: break-word; }
+  .te .ok { color: var(--ok); } .te .bad { color: var(--bad); } .te .pay { color: var(--warn); }
+  @media (max-width: 640px) { .slide { width: 100%; padding: 16px 16px 40px; } }
   /* modals: approval + receipt */
   .overlay { position: fixed; inset: 0; z-index: 40; display: none; place-items: center; padding: 16px; background: rgba(11,13,18,0.32); }
   .overlay.show { display: grid; }
@@ -196,6 +239,8 @@
     .top .in { padding: 0 16px; gap: 8px; height: 52px; }
     .brand span { display: none; }
     .sel { max-width: 150px; }
+    .cb { position: static; }
+    .cb-pop { position: fixed; left: 16px; right: 16px; top: 60px; width: auto; }
     .mini.show ~ .actions .sel { display: none; }
     .page { padding: 16px 16px 40px; }
     .hero { padding: 20px 16px; }
@@ -214,12 +259,14 @@
     <a class="brand" href="/" aria-label="Room 402 home"><img src="/logo.svg" alt="" width="24" height="24" /><span>Room <b>402</b></span></a>
     <span class="mini" id="mini"><b class="tnum" id="miniLeft">$5.00</b> left · <span class="tnum" id="miniClock">00:00</span></span>
     <div class="actions">
-      <select class="sel" id="modelSel" aria-label="Model">
-        <option value="anthropic/claude-haiku-5.5">Claude Haiku 5.5</option>
-        <option value="openai/gpt-6-luna">GPT-6 Luna</option>
-        <option value="anthropic/claude-sonnet-5.5">Claude Sonnet 5.5</option>
-        <option value="openai/gpt-6.1-sol">GPT-6.1 Sol</option>
-      </select>
+      <div class="cb" id="cb">
+        <input type="hidden" id="modelSel" value="anthropic/claude-haiku-5.5" />
+        <button class="sel cb-btn" id="cbBtn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Model"><span id="cbLabel">Claude Haiku 5.5</span></button>
+        <div class="cb-pop" id="cbPop">
+          <input class="cb-q" id="cbQ" type="text" placeholder="Search 300+ models…" autocomplete="off" spellcheck="false" aria-label="Search models" aria-controls="cbList" />
+          <div class="cb-list" id="cbList" role="listbox"></div>
+        </div>
+      </div>
       <button class="btn primary" id="startBtn">Start run</button>
       <button class="btn icon" id="moreBtn" aria-label="More options" aria-expanded="false">…</button>
       <div class="menu" id="menu" role="menu">
@@ -248,9 +295,11 @@
           <button class="tab" role="tab" data-tab="activity" aria-selected="true">Activity</button>
           <button class="tab" role="tab" data-tab="terminal" aria-selected="false">Terminal</button>
           <button class="tab" role="tab" data-tab="board" aria-selected="false">Leaderboard</button>
+          <button class="tab" role="tab" data-tab="history" aria-selected="false">History</button>
         </div>
         <div class="pane on" id="pane-activity"><div class="feed" id="thoughts"></div><div class="empty" id="thoughtsEmpty">The agent's thinking will show up here once a run starts.</div></div>
         <div class="pane" id="pane-terminal"><div class="term" id="term" role="log"><div id="termInner"><div class="ln meta">No run yet.</div></div></div></div>
+        <div class="pane" id="pane-history"><div id="hist"><div class="empty">Loading…</div></div></div>
         <div class="pane" id="pane-board"><div class="tw" id="lb"><div class="empty">No runs yet.</div></div><div class="legend">Hint level per room: 0 solo · 1 nudge · 2 clue · 3 answer · X failed · W walked away</div></div>
       </div>
 
@@ -273,6 +322,7 @@
     <div class="btns" id="apBtns"><button class="btn primary" id="apYes">Approve</button><button class="btn" id="apNo">Deny</button></div>
   </div></div>
   <div class="overlay" id="overlay"><div class="sheet rc" id="receipt" role="dialog" aria-modal="true" aria-label="Run receipt"></div></div>
+  <div class="overlay so" id="hOverlay"><aside class="slide" id="hPanel" role="dialog" aria-modal="true" aria-label="Run detail"></aside></div>
   <div class="toast" id="toast" role="status"></div>
 
 <script>
@@ -314,6 +364,7 @@
     document.querySelectorAll(".tab").forEach((t) => t.setAttribute("aria-selected", String(t.dataset.tab === name)));
     document.querySelectorAll(".pane").forEach((p) => p.classList.toggle("on", p.id === "pane-" + name));
     if (name === "terminal") { const t = $("term"); t.scrollTop = t.scrollHeight; }
+    if (name === "history") loadHistory();
   }
   document.querySelectorAll(".tab").forEach((t) => (t.onclick = () => showTab(t.dataset.tab)));
   $("moreBtn").onclick = (e) => { e.stopPropagation(); const open = !$("menu").classList.contains("open"); $("menu").classList.toggle("open", open); $("moreBtn").setAttribute("aria-expanded", String(open)); };
@@ -494,7 +545,7 @@
     $("rcClose").onclick = closeReceipt;
   }
   $("overlay").addEventListener("click", (e) => { if (e.target.id === "overlay") closeReceipt(); });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeReceipt(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeReceipt(); closeRun(); } });
 
   let demoBoard = [];
   async function loadLeaderboard() {
@@ -528,8 +579,10 @@
   }
 
   // ---------- event handler ----------
+  const RUNLOG = {};
   function handle(e) {
     if (!e || !e.t) return;
+    if (e.t !== "tick" && e.runId) (RUNLOG[e.runId] = RUNLOG[e.runId] || []).push(e);
     if (e.t === "run_start") {
       reset(); S.runId = e.runId; S.model = e.model; S.seed = e.seed; S.startTs = e.ts; S.running = true; S.lastTickAt = Date.now();
       setStatus("RUNNING"); renderRooms(e.rooms || []); renderWallet();
@@ -739,6 +792,141 @@
     }, 26200));
     runDemo._timers = demoTimers;
   }
+
+  // ---------- history ----------
+  const outcome = (r) => r.escaped ? ["ESCAPED", "Escaped"] : r.flags?.includes("BANKRUPT") ? ["BANKRUPT", "Bankrupt"] : r.flags?.includes("TIMEOUT") ? ["TIMEOUT", "Timed out"] : ["FAILED", "Did not escape"];
+  function ago(ts) { const s = Math.max(0, (Date.now() - ts) / 1000); if (s < 60) return "just now"; if (s < 3600) return Math.floor(s / 60) + " min ago"; if (s < 86400) return Math.floor(s / 3600) + " h ago"; return Math.floor(s / 86400) + " d ago"; }
+  let HIST = [];
+  async function loadHistory() {
+    if (DEMO) HIST = demoBoard;
+    else { try { const r = await fetch("/api/runs"); if (r.ok) { const d = await r.json(); HIST = Array.isArray(d) ? d : (d && d.runs) || []; } } catch {} }
+    renderHistory();
+  }
+  function renderHistory() {
+    if (!HIST.length) { $("hist").innerHTML = '<div class="empty">No finished runs yet.</div>'; return; }
+    $("hist").innerHTML = '<div class="card">' + HIST.map((r, i) => { const [k, l] = outcome(r); return `<button class="hrow" data-i="${i}"><div class="mid"><div class="lb">${esc(prettyModel(r.model))}<span class="pill ${k}">${l}</span></div><div class="meta"><span class="tnum">${clockStr((r.endedAt || 0) - (r.startedAt || 0))}</span><span>·</span><span>${r.endedAt ? ago(r.endedAt) : ""}</span>${(r.flags || []).length ? "<span>·</span>" + r.flags.map(chipHtml).join("") : ""}</div></div><div class="amt">${usd(r.totalCents)}</div></button>`; }).join("") + "</div>";
+  }
+  $("hist").addEventListener("click", (e) => { const b = e.target.closest(".hrow"); if (b) openRun(HIST[+b.dataset.i]); });
+  function closeRun() { $("hOverlay").classList.remove("show"); }
+  $("hOverlay").addEventListener("click", (e) => { if (e.target.id === "hOverlay") closeRun(); });
+  async function openRun(r) {
+    if (!r) return;
+    $("hPanel").innerHTML = '<button class="btn back" id="hBack">← Back</button><div class="empty">Loading run…</div>';
+    $("hBack").onclick = closeRun; $("hOverlay").classList.add("show");
+    let result = r, events = [];
+    if (DEMO) events = RUNLOG[r.runId] || [];
+    else { try { const res = await fetch(`/api/runs/${encodeURIComponent(r.runId)}`); if (res.ok) { const d = await res.json(); result = d.result || r; events = Array.isArray(d.events) ? d.events : []; } } catch {} }
+    renderRun(result, events);
+  }
+  function txLine(ic, sym, label, meta, amt) { return `<div class="tx"><div class="ic ${ic}">${sym}</div><div class="mid"><div class="lb">${esc(label)}</div><div class="meta">${esc(meta)}</div></div><div class="amt">${amt}</div></div>`; }
+  function renderRun(r, events) {
+    const [k, l] = outcome(r);
+    const t0 = r.startedAt || (events[0] && events[0].ts) || 0;
+    const off = (ts) => clockStr((ts || t0) - t0);
+    const rn = (id) => ROOM_NAMES[id] || id;
+    const rooms = ROOM_ORDER.filter((id) => r.perRoom && id in r.perRoom);
+    let tl = "", tx = "";
+    for (const e of events) {
+      let b = "";
+      switch (e.t) {
+        case "run_start": b = `Entered the room with a ${usd(e.budgetCents)} budget`; break;
+        case "thought": b = `<span class="th">${esc(e.text)}</span>`; break;
+        case "cmd": b = `<code>$ ${esc(e.cmd)}</code>`; break;
+        case "cmd_result": { const out = [e.stdout, e.stderr].filter(Boolean).join("\n").replace(/\s+$/, ""); b = `<details><summary>Output · exit ${esc(e.exit_code)} · ${esc(e.ms)}ms</summary><pre>${esc(out || "(no output)")}</pre></details>`; break; }
+        case "hint_402": b = `<span class="pay">402 Payment required · ${esc(rn(e.room))} ${esc(e.tier)} · ${usd(e.priceCents)}</span>`; break;
+        case "paid": b = `<span class="pay">Paid ${usd(e.priceCents)} · ${esc(rn(e.room))} ${esc(e.tier)}</span>`; tx += txLine("hint", "?", `Hint · ${rn(e.room)} · ${e.tier}`, off(e.ts), neg(e.priceCents)); break;
+        case "hint_unlocked": b = `Hint: “${esc(e.text)}”`; break;
+        case "door": b = `<span class="${e.ok ? "ok" : "bad"}">${e.ok ? "Door opened" : "Wrong key"} · ${esc(rn(e.room))}${e.fineCents ? " · fined " + usd(e.fineCents) : ""}</span>`; if (!e.ok && e.fineCents) tx += txLine("fine", "!", `Fine · wrong key · ${rn(e.room)}`, off(e.ts), neg(e.fineCents)); break;
+        case "room_solved": b = `<span class="ok">${esc(rn(e.room))}: ${esc(levelBadge(e.hintLevel))}</span>`; break;
+        case "approval_request": b = `Asked to spend ${usd(e.amountCents)}: ${esc(e.reason)}`; break;
+        case "approval_decision": b = `<span class="${e.approved ? "ok" : "bad"}">Spend ${e.approved ? "approved" : "denied"}</span>`; break;
+        case "give_up": b = `Gave up on ${esc(rn(e.room))}: ${esc(e.reason)}`; break;
+        case "flag": b = `${chipHtml(e.flag)} ${esc(e.detail)}`; break;
+        case "lights": b = e.on ? "Lights back on" : "Lights out"; break;
+        case "error": b = `<span class="bad">Error: ${esc(e.message)}</span>`; break;
+        default: continue;
+      }
+      tl += `<div class="te"><span class="t">${off(e.ts)}</span><div class="b">${b}</div></div>`;
+    }
+    $("hPanel").innerHTML = `
+      <button class="btn back" id="hBack">← Back</button>
+      <div class="sumc rc">
+        <div class="t">Run · seed ${esc(r.seed)} · ${r.endedAt ? ago(r.endedAt) : ""}</div>
+        <div class="stt ${r.escaped ? "y" : "n"}">${l}</div>
+        <div class="big">${usd(r.totalCents)}</div>
+        <div class="sub">${esc(prettyModel(r.model))} · ${clockStr((r.endedAt || 0) - (r.startedAt || 0))} · ${esc(r.turns ?? "–")} turns</div>
+        <div class="sec">
+          <div class="row"><span>Clock time</span><b>${usd(r.breakdown?.clockCents)}</b></div>
+          <div class="row"><span>Hints bought</span><b>${usd(r.breakdown?.hintCents)}</b></div>
+          <div class="row"><span>Wrong-door fines</span><b>${usd(r.breakdown?.fineCents)}</b></div>
+        </div>
+        ${(r.flags || []).length ? `<div class="sec">${r.flags.map(chipHtml).join("")}</div>` : ""}
+        ${r.receiptUrl ? `<a class="btn primary" href="${esc(r.receiptUrl)}" target="_blank" rel="noopener">View Stripe receipt ↗</a>` : ""}
+      </div>
+      ${rooms.length ? `<div class="h-sec"><h3>Rooms</h3><div class="h-steps">${rooms.map((id) => `<span class="hstep">${esc(rn(id))} ${roomLvl(r, id)}</span>`).join("")}</div></div>` : ""}
+      <div class="h-sec"><h3>Timeline</h3>${tl || '<div class="note">Detailed log not recorded for this run.</div>'}</div>
+      <div class="h-sec"><h3>Transactions</h3><div class="card">
+        ${txLine("hold", "✓", "Stripe hold", "Authorized at start", usd(BUDGET))}
+        ${txLine("", "◷", "Clock time", "$0.05 per minute", neg(r.breakdown?.clockCents))}
+        ${tx}
+        <div class="settle show"><div class="row"><span>Captured</span><b>${usd(r.totalCents)}</b></div><div class="row"><span>Released to card</span><b>${usd(Math.max(0, BUDGET - (r.totalCents || 0)))}</b></div></div>
+      </div></div>`;
+    $("hBack").onclick = closeRun;
+  }
+
+  // ---------- model combobox ----------
+  const FEATURED = ["anthropic/claude-sonnet-5.5", "anthropic/claude-haiku-5.5", "openai/gpt-6-luna", "openai/gpt-6.1-sol"];
+  const PROVIDERS = { openai: "OpenAI", anthropic: "Anthropic", google: "Google", "meta-llama": "Meta", mistralai: "Mistral", "x-ai": "xAI", deepseek: "DeepSeek", qwen: "Qwen", cohere: "Cohere" };
+  const provOf = (m) => m.provider || String(m.id).split("/")[0];
+  const provName = (p) => PROVIDERS[String(p).toLowerCase()] || (String(p).charAt(0).toUpperCase() + String(p).slice(1));
+  let ALL = FEATURED.map((id) => ({ id, name: MODELS[id], provider: id.split("/")[0] }));
+  let cbItems = [], cbActive = 0;
+  const cb = { btn: $("cbBtn"), pop: $("cbPop"), q: $("cbQ"), list: $("cbList"), label: $("cbLabel") };
+  function cbPrice(m) { const n = Number(m.promptPerM); return m.promptPerM != null && isFinite(n) ? "$" + (n < 10 ? n.toFixed(2) : n.toFixed(0)) + " / 1M in" : ""; }
+  function cbRender() {
+    const q = cb.q.value.trim().toLowerCase();
+    const match = (m) => !q || String(m.name || "").toLowerCase().includes(q) || String(m.id).toLowerCase().includes(q) || provName(provOf(m)).toLowerCase().includes(q);
+    const feat = FEATURED.map((id) => ALL.find((m) => m.id === id) || { id, name: MODELS[id], provider: id.split("/")[0] }).filter(match);
+    const byProv = {};
+    ALL.filter((m) => !FEATURED.includes(m.id) && match(m)).forEach((m) => { (byProv[provName(provOf(m))] = byProv[provName(provOf(m))] || []).push(m); });
+    const groups = (feat.length ? [["Featured", feat]] : []).concat(Object.keys(byProv).sort().map((p) => [p, byProv[p]]));
+    cbItems = []; let html = "";
+    for (const [g, list] of groups) {
+      html += `<div class="cb-g">${esc(g)}</div>`;
+      for (const m of list) {
+        const i = cbItems.push(m) - 1;
+        html += `<div class="cb-o${m.id === $("modelSel").value ? " cur" : ""}" role="option" data-i="${i}" id="cbo${i}"><div class="cb-n"><span>${esc(m.name || m.id)}</span><span class="cb-p">${esc(cbPrice(m))}</span></div><div class="cb-id">${esc(m.id)}</div></div>`;
+      }
+    }
+    cb.list.innerHTML = html || '<div class="cb-empty">No models match</div>';
+    cbActive = Math.min(cbActive, Math.max(0, cbItems.length - 1)); cbHi(true);
+  }
+  function cbHi(scroll) {
+    cb.list.querySelectorAll(".cb-o").forEach((el) => el.classList.toggle("act", +el.dataset.i === cbActive));
+    const a = $("cbo" + cbActive); if (a && scroll) a.scrollIntoView({ block: "nearest" });
+  }
+  function cbOpen() { cb.pop.classList.add("open"); cb.btn.setAttribute("aria-expanded", "true"); cb.q.value = ""; cbActive = 0; cbRender(); cb.q.focus(); }
+  function cbClose() { cb.pop.classList.remove("open"); cb.btn.setAttribute("aria-expanded", "false"); }
+  function cbPick(m) { if (!m) return; $("modelSel").value = m.id; cb.label.textContent = m.name || m.id; cbClose(); cb.btn.focus(); }
+  cb.btn.onclick = (e) => { e.stopPropagation(); cb.pop.classList.contains("open") ? cbClose() : cbOpen(); };
+  cb.pop.addEventListener("click", (e) => { e.stopPropagation(); const o = e.target.closest(".cb-o"); if (o) cbPick(cbItems[+o.dataset.i]); });
+  cb.list.addEventListener("mousemove", (e) => { const o = e.target.closest(".cb-o"); if (o && +o.dataset.i !== cbActive) { cbActive = +o.dataset.i; cbHi(false); } });
+  cb.q.oninput = () => { cbActive = 0; cbRender(); };
+  cb.q.onkeydown = (e) => {
+    if (e.key === "ArrowDown") { e.preventDefault(); cbActive = Math.min(cbItems.length - 1, cbActive + 1); cbHi(true); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); cbActive = Math.max(0, cbActive - 1); cbHi(true); }
+    else if (e.key === "Enter") { e.preventDefault(); cbPick(cbItems[cbActive]); }
+    else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); cbClose(); cb.btn.focus(); }
+  };
+  document.addEventListener("click", (e) => { if (!cb.pop.contains(e.target) && !cb.btn.contains(e.target)) cbClose(); });
+  fetch("/api/models").then((r) => (r.ok ? r.json() : null)).then((d) => {
+    const arr = Array.isArray(d) ? d : d && d.models;
+    if (Array.isArray(arr) && arr.length) {
+      ALL = arr.filter((m) => m && m.id);
+      ALL.forEach((m) => { if (m.name && !MODELS[m.id]) MODELS[m.id] = m.name; });
+      if (cb.pop.classList.contains("open")) cbRender();
+    }
+  }).catch(() => {});
 
   // ---------- boot ----------
   renderRooms([
