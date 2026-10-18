@@ -1,4 +1,4 @@
-import { ADMIN_TOKEN, BASE_URL, PORT } from "./env.js";
+import { ADMIN_TOKEN, BASE_URL, PORT, PUBLIC_CONTROLS } from "./env.js";
 import { readFileSync } from "node:fs";
 import { Hono, type Context } from "hono";
 import { serve } from "@hono/node-server";
@@ -36,6 +36,7 @@ function isLoopback(c: Context) {
 // Operator actions (start runs, approve spend, lights out). Fail closed: without
 // ROOM402_ADMIN_TOKEN only localhost may act; with it, the x-admin-token header must match.
 function isOperator(c: Context) {
+  if (PUBLIC_CONTROLS) return true; // demo mode: open controls (guardrails: model allowlist, one run at a time, run cap)
   if (!ADMIN_TOKEN) return isLoopback(c);
   const given = Buffer.from(c.req.header("x-admin-token") ?? "");
   const want = Buffer.from(ADMIN_TOKEN);
