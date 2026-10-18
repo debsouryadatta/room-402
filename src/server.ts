@@ -176,12 +176,20 @@ async function modelCatalog(): Promise<ModelInfo[]> {
   const json: any = await res.json();
   const models: ModelInfo[] = (json.data ?? [])
     .filter((m: any) => (m.supported_parameters ?? []).includes("tools"))
+    // Fail closed on pricing: every listed fee must be a finite number >= 0, and per-request,
+    // reasoning and web-search surcharges must be zero.
+    .filter((m: any) => {
+      const p = m.pricing ?? {};
+      const fees = ["prompt", "completion"].map((k) => Number(p[k]));
+      if (fees.some((v) => !Number.isFinite(v) || v < 0)) return false;
+      return ["request", "internal_reasoning", "web_search"].every((k) => p[k] === undefined || Number(p[k]) === 0);
+    })
     .map((m: any) => ({
       id: String(m.id),
       name: String(m.name ?? m.id).replace(/^[^:]+:\s*/, ""),
       provider: String(m.id).split("/")[0],
-      promptPerM: Number(m.pricing?.prompt ?? 0) * 1e6,
-      completionPerM: Number(m.pricing?.completion ?? 0) * 1e6,
+      promptPerM: Number(m.pricing.prompt) * 1e6,
+      completionPerM: Number(m.pricing.completion) * 1e6,
       context: Number(m.context_length ?? 0),
     }))
     .filter((m: ModelInfo) => m.promptPerM >= 0 && m.promptPerM <= MAX_PROMPT_PER_M && m.completionPerM <= MAX_COMPLETION_PER_M)
