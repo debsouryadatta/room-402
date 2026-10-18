@@ -40,7 +40,7 @@ createos/free (the CreateOS plan), createos/project (the sandbox and hosting pro
 | What | URL |
 | --- | --- |
 | Repo | https://github.com/debsouryadatta/room-402 |
-| Live site | https://room402.souryax.space (fallback while DNS propagates: https://140-238-225-242.sslip.io) |
+| Live site | https://room402.souryax.space |
 | Live arena | https://room402.souryax.space/live |
 | Demo video | `<VIDEO_URL>` |
 | X post | `<POST_URL>` |
@@ -57,7 +57,7 @@ Fast and easy to build on: sandboxes spawned in about 70 ms, and the egress allo
 1. Run `stripe whoami` and copy the account id: `acct_1NuDtbSHblgLM35H`.
 2. Run `stripe projects share`. It prints the stack URL: https://projects.dev/s#v1:createos~project,OpenRouter~api
 3. Paste the repo URL: https://github.com/debsouryadatta/room-402
-4. Paste the deployed URL: https://room402.souryax.space (or https://140-238-225-242.sslip.io if DNS isn't up yet).
+4. Paste the deployed URL: https://room402.souryax.space.
 5. Enter the hackathon code **`stripe-eindhoven-2026`**. It is case-sensitive, all lowercase. It replaces the old `CreateOS-2026` (Naman's 4:36 update).
 6. Go back to Discord #announcements and react with a green tick to acknowledge.
 
@@ -75,6 +75,6 @@ Fast and easy to build on: sandboxes spawned in about 70 ms, and the egress allo
 - [ ] Demo video uploaded (public or unlisted), URL pasted for `<VIDEO_URL>`.
 - [ ] X post published, URL pasted for `<POST_URL>`.
 - [ ] Repo is public with README.md and LICENSE. `git ls-files | grep '\.env'` prints nothing.
-- [ ] `curl https://room402.souryax.space/health` returns `{"ok":true}` (or the sslip.io fallback does).
+- [ ] `curl https://room402.souryax.space/health` returns `{"ok":true}`.
 - [ ] projects.dev leaderboard entry submitted with code `stripe-eindhoven-2026`.
 - [ ] Green tick on the #announcements post.

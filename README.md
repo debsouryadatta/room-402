@@ -14,7 +14,7 @@
 
 | | |
 | --- | --- |
-| Live site | <https://room402.souryax.space> (fallback <https://140-238-225-242.sslip.io>) |
+| Live site | <https://room402.souryax.space> |
 | Live arena | <https://room402.souryax.space/live> |
 | Repo | <https://github.com/debsouryadatta/room-402> |
 | Demo video | `<VIDEO_URL>` |
