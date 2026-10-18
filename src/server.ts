@@ -165,6 +165,38 @@ app.get("/api/state", (c) => {
 
 app.get("/api/leaderboard", (c) => c.json(leaderboard()));
 
+// ---------- model catalog (any OpenRouter model that supports tool calling, within a price cap) ----------
+type ModelInfo = { id: string; name: string; provider: string; promptPerM: number; completionPerM: number; context: number };
+const MAX_PROMPT_PER_M = 5; // USD per 1M input tokens; keeps open public runs cheap
+const MAX_COMPLETION_PER_M = 25;
+let modelCache: { at: number; models: ModelInfo[] } | null = null;
+async function modelCatalog(): Promise<ModelInfo[]> {
+  if (modelCache && Date.now() - modelCache.at < 10 * 60_000) return modelCache.models;
+  const res = await fetch("https://openrouter.ai/api/v1/models");
+  const json: any = await res.json();
+  const models: ModelInfo[] = (json.data ?? [])
+    .filter((m: any) => (m.supported_parameters ?? []).includes("tools"))
+    .map((m: any) => ({
+      id: String(m.id),
+      name: String(m.name ?? m.id).replace(/^[^:]+:\s*/, ""),
+      provider: String(m.id).split("/")[0],
+      promptPerM: Number(m.pricing?.prompt ?? 0) * 1e6,
+      completionPerM: Number(m.pricing?.completion ?? 0) * 1e6,
+      context: Number(m.context_length ?? 0),
+    }))
+    .filter((m: ModelInfo) => m.promptPerM >= 0 && m.promptPerM <= MAX_PROMPT_PER_M && m.completionPerM <= MAX_COMPLETION_PER_M)
+    .sort((a: ModelInfo, b: ModelInfo) => a.provider.localeCompare(b.provider) || a.name.localeCompare(b.name));
+  modelCache = { at: Date.now(), models };
+  return models;
+}
+app.get("/api/models", async (c) => {
+  try {
+    return c.json(await modelCatalog());
+  } catch (e: any) {
+    return c.json({ error: e.message }, 502);
+  }
+});
+
 app.post("/api/run", async (c) => {
   if (!isOperator(c)) return c.json({ error: "operator token required" }, 401);
   const b = await body(c);
@@ -175,7 +207,8 @@ app.post("/api/run", async (c) => {
   starting = true;
   try {
     const { startRun, MODELS } = await import("./runner.js");
-    if (!MODELS.some((m) => m.id === model)) return c.json({ error: `unknown model; use one of ${MODELS.map((m) => m.id).join(", ")}` }, 400);
+    const known = MODELS.some((m) => m.id === model) || (await modelCatalog().catch(() => [] as ModelInfo[])).some((m) => m.id === model);
+    if (!known) return c.json({ error: "unknown model: pick a tool-calling OpenRouter model from /api/models" }, 400);
     return c.json(await startRun({ model, seed }));
   } catch (e: any) {
     return c.json({ error: e.message }, 500);
