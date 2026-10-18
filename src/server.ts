@@ -5,7 +5,7 @@ import { serve } from "@hono/node-server";
 import { getConnInfo } from "@hono/node-server/conninfo";
 import { timingSafeEqual } from "node:crypto";
 import { streamSSE } from "hono/streaming";
-import { recent, subscribe } from "./bus.js";
+import { recent, runEvents, subscribe } from "./bus.js";
 import { currentRun, getRun, leaderboard } from "./game.js";
 import type { RoomId, Tier } from "./types.js";
 
@@ -164,6 +164,16 @@ app.get("/api/state", (c) => {
 });
 
 app.get("/api/leaderboard", (c) => c.json(leaderboard()));
+
+// Run history: every finished run (newest first), and one run's full event log.
+app.get("/api/runs", (c) => c.json([...leaderboard()].sort((a, b) => b.startedAt - a.startedAt)));
+app.get("/api/runs/:id", (c) => {
+  const id = c.req.param("id");
+  const result = leaderboard().find((r) => r.runId === id) ?? null;
+  const events = runEvents(id);
+  if (!result && events.length === 0) return c.json({ error: "unknown run" }, 404);
+  return c.json({ result, events });
+});
 
 // ---------- model catalog (any OpenRouter model that supports tool calling, within a price cap) ----------
 type ModelInfo = { id: string; name: string; provider: string; promptPerM: number; completionPerM: number; context: number };
