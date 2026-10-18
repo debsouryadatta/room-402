@@ -13,6 +13,7 @@
 #            R402_URL_FILE (default docs/DEPLOYED_URL.txt; empty = don't write),
 #            R402_CONFIG_FILE (default .createos.json).
 # Secrets come from .env / .env.local and go to the API through a 0600 temp file. Never printed.
+set +x   # never trace: secrets live in variables below
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -125,6 +126,7 @@ run_envs_json() {
             CREATEOS_SANDBOX_API_KEY: env.CREATEOS_SANDBOX_API_KEY,
             CREATEOS_SANDBOX_BASE_URL: env.CREATEOS_SANDBOX_BASE_URL,
             ROOM402_ADMIN_TOKEN: env.ROOM402_ADMIN_TOKEN,
+            ROOM402_PUBLIC_CONTROLS: "1",
             NODE_ENV: "production"}'
 }
 
@@ -183,7 +185,8 @@ verify() {
     log "GET / -> $code, waiting for the app ($i/30)"
     sleep 5
   done
-  if [ "$code" = 200 ] && curl -s --max-time 20 "$url/" | grep -qi '<html\|<!doctype\|<h1'; then
+  # Body to a file first: `curl | grep -q` under pipefail fails when grep exits early (curl rc 23).
+  if [ "$code" = 200 ] && curl -s --max-time 20 -o "$TMP/index.html" "$url/" && grep -Eqi '<html|<!doctype|<h1' "$TMP/index.html"; then
     log "OK   GET / -> 200 html"
   else log "FAIL GET / -> $code"; ok=0; fi
 
@@ -259,12 +262,19 @@ deploy() {
     jq -n --arg d "$DID" '{deploymentId: $d}' >"$TMP/assign.json"
     api POST "/v1/projects/$PID/environments/$EID/assign-deployment" --data-binary "@$TMP/assign.json" >/dev/null || log "warn: assign-deployment failed"
   fi
+  # Confirm the environment points at this deployment, so verify can't pass on an older one.
+  for i in $(seq 1 15); do
+    cur="$(api GET "/v1/projects/$PID/environments" 2>/dev/null | jq -r --arg e "$EID" '[(.data | if type == "object" then .data else . end)[] | select(.id == $e)][0].projectDeploymentId // empty' || true)"
+    [ "$cur" = "$DID" ] && break
+    sleep 2
+  done
+  [ "$cur" = "$DID" ] || die "environment still serves ${cur:-nothing}, not $DID"
 
   # Use the environment endpoint (https://production-<name>.<x>.nodeops.app). The per-deployment
   # dep-<id> endpoint accepted TLS but never answered in the spike, so it is not used.
   URL=""
   for i in $(seq 1 30); do
-    URL="$(env_url)"
+    URL="$(env_url || true)"
     [ -n "$URL" ] && break
     sleep 2
   done

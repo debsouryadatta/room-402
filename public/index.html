@@ -2,342 +2,281 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>ROOM 402: an escape room for AI agents</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#ffffff" />
+<title>Room 402 · Live run</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <link rel="icon" type="image/png" sizes="32x32" href="/logo-32.png" />
 <link rel="apple-touch-icon" href="/logo-180.png" />
 <style>
   :root {
-    --bg: #0a0908;
-    --panel: #12100e;
-    --panel2: #17140f;
-    --line: #2a241c;
-    --line2: #3a3126;
-    --text: #ece5d8;
-    --dim: #8c8273;
-    --faint: #5a5246;
-    --amber: #ffb000;
-    --amber2: #ff8a00;
-    --red: #ff4b2b;
-    --green: #39e58c;
-    --violet: #b08cff;
-    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
-    --sans: ui-sans-serif, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    --ink: #0B0D12; --ink-2: #5B6170; --ink-3: #8A90A0;
+    --line: #E6E8EC; --bg: #FFFFFF; --bg-2: #F6F7F9; --bg-3: #EEF0F3;
+    --accent: #5B5BD6; --accent-ink: #4646B8; --accent-soft: #EEEEFB;
+    --ok: #18794E; --ok-soft: #E9F6EF; --warn: #A35200; --warn-soft: #FDF1E3;
+    --bad: #C4320A; --bad-soft: #FDEEEA; --blue: #175CD3; --blue-soft: #EAF2FF;
+    --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", sans-serif;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: var(--sans); overflow: hidden; }
-  body {
-    display: grid;
-    grid-template-rows: 96px minmax(0, 1fr) 196px;
-    height: 100vh;
-    background:
-      radial-gradient(1200px 600px at 50% -10%, rgba(255,140,0,0.10), transparent 60%),
-      radial-gradient(900px 500px at 100% 110%, rgba(255,75,43,0.07), transparent 60%),
-      var(--bg);
-  }
-  /* scanlines + vignette */
-  body::after {
-    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 50;
-    background: repeating-linear-gradient(to bottom, rgba(255,255,255,0.025) 0 1px, transparent 1px 3px);
-    mix-blend-mode: overlay;
-  }
-  body::before {
-    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 49;
-    background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.55) 100%);
-  }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 400 15px/1.5 var(--sans); -webkit-font-smoothing: antialiased; }
+  button, input, select { font: inherit; color: inherit; }
+  a { color: inherit; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
 
-  /* ---------- header ---------- */
-  header {
-    display: flex; align-items: center; gap: 28px; padding: 0 28px;
-    border-bottom: 1px solid var(--line);
-    background: linear-gradient(to bottom, rgba(255,176,0,0.05), transparent);
-  }
-  .brand { display: flex; align-items: baseline; gap: 14px; white-space: nowrap; }
-  .brand .room { font: 800 22px/1 var(--sans); letter-spacing: 0.32em; color: var(--dim); }
-  .brand .num {
-    font: 900 64px/1 var(--mono); color: var(--amber); letter-spacing: -0.02em;
-    text-shadow: 0 0 18px rgba(255,176,0,0.55), 0 0 2px rgba(255,176,0,0.9);
-  }
-  .tagline { font: 500 15px/1.35 var(--mono); color: var(--dim); max-width: 330px; }
-  .tagline b { color: var(--text); font-weight: 600; }
-  .hdr-mid { display: flex; gap: 26px; align-items: center; margin-left: 8px; }
-  .kv { display: flex; flex-direction: column; gap: 4px; }
-  .kv .k { font: 600 11px/1 var(--mono); letter-spacing: 0.18em; color: var(--faint); text-transform: uppercase; }
-  .kv .v { font: 700 20px/1 var(--mono); color: var(--text); white-space: nowrap; }
-  .clock { font: 800 44px/1 var(--mono) !important; color: var(--amber) !important; letter-spacing: 0.02em; text-shadow: 0 0 14px rgba(255,176,0,0.35); min-width: 140px; }
-  .pill {
-    font: 800 14px/1 var(--mono); letter-spacing: 0.16em; padding: 9px 14px; border-radius: 999px;
-    border: 1px solid var(--line2); color: var(--dim); background: #0d0c0a; white-space: nowrap;
-  }
-  .pill.RUNNING { color: var(--amber); border-color: rgba(255,176,0,0.6); box-shadow: 0 0 14px rgba(255,176,0,0.25); animation: pulse 1.6s ease-in-out infinite; }
-  .pill.ESCAPED { color: #04140b; background: var(--green); border-color: var(--green); box-shadow: 0 0 22px rgba(57,229,140,0.45); }
-  .pill.BANKRUPT, .pill.TIMEOUT, .pill.FAILED { color: #fff; background: var(--red); border-color: var(--red); box-shadow: 0 0 22px rgba(255,75,43,0.45); }
-  @keyframes pulse { 50% { box-shadow: 0 0 2px rgba(255,176,0,0.1); opacity: 0.8; } }
+  /* header */
+  .top { position: sticky; top: 0; z-index: 30; background: rgba(255,255,255,0.94); border-bottom: 1px solid var(--line); }
+  .top .in { max-width: 1120px; margin: 0 auto; height: 56px; padding: 0 24px; display: flex; align-items: center; gap: 16px; }
+  .brand { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; font-size: 15px; font-weight: 600; white-space: nowrap; }
+  .brand img { width: 24px; height: 24px; border-radius: 6px; }
+  .brand b { color: var(--accent); font-weight: 600; }
+  .mini { display: none; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); white-space: nowrap; }
+  .mini.show { display: inline-flex; }
+  .mini b { color: var(--ink); font-weight: 600; }
+  .actions { margin-left: auto; display: flex; align-items: center; gap: 8px; position: relative; }
+  .sel { height: 36px; padding: 0 32px 0 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%235B6170' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 12px center; appearance: none; -webkit-appearance: none; font-size: 13px; font-weight: 500; cursor: pointer; }
+  .btn { height: 36px; padding: 0 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; }
+  .btn:hover { background: var(--bg-2); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover:not(:disabled) { background: var(--accent-ink); }
+  .btn.icon { width: 36px; padding: 0; font-size: 17px; letter-spacing: 1px; }
+  .menu { display: none; position: absolute; right: 0; top: 44px; width: 240px; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 8px; box-shadow: 0 8px 24px rgba(11,13,18,0.08); }
+  .menu.open { display: block; }
+  .menu label { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px; font-size: 13px; color: var(--ink-2); }
+  .menu input { width: 96px; height: 32px; padding: 0 8px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .menu button.item { width: 100%; text-align: left; padding: 8px; border: 0; background: none; border-radius: 8px; font-size: 13px; cursor: pointer; display: flex; justify-content: space-between; }
+  .menu button.item:hover { background: var(--bg-2); }
+  .menu .hint { padding: 0 8px 8px; font-size: 12px; color: var(--ink-3); }
 
-  .controls { margin-left: auto; display: flex; gap: 8px; align-items: center; }
-  .controls select, .controls input, .controls button {
-    font: 600 12px/1 var(--mono); color: var(--text); background: #0f0d0b; border: 1px solid var(--line2);
-    border-radius: 6px; padding: 8px 10px; height: 32px;
-  }
-  .controls input { width: 70px; }
-  .controls button { cursor: pointer; letter-spacing: 0.06em; }
-  .controls button.go { background: var(--amber); color: #1a1000; border-color: var(--amber); font-weight: 800; }
-  .controls button.go:disabled { opacity: 0.4; cursor: default; }
-  .controls button.lights.off { background: #1c0e0a; border-color: var(--red); color: var(--red); }
+  /* page */
+  .page { max-width: 1120px; margin: 0 auto; padding: 24px 24px 48px; }
+  .notice { display: none; margin-bottom: 16px; padding: 12px 16px; border-radius: 12px; background: var(--warn-soft); color: var(--warn); font-size: 13px; font-weight: 500; }
+  .notice.on { display: block; }
 
-  /* ---------- main ---------- */
-  main {
-    display: grid; grid-template-columns: 400px minmax(0, 1fr) 480px; gap: 14px;
-    padding: 14px 14px 0 14px; min-height: 0;
-  }
-  .col { display: flex; flex-direction: column; gap: 14px; min-height: 0; }
-  .panel {
-    background: linear-gradient(to bottom, var(--panel2), var(--panel)); border: 1px solid var(--line);
-    border-radius: 10px; min-height: 0; display: flex; flex-direction: column; position: relative; overflow: hidden;
-  }
-  .panel h2 {
-    margin: 0; padding: 11px 14px 9px; font: 800 12px/1 var(--mono); letter-spacing: 0.22em; color: var(--dim);
-    border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 10px; text-transform: uppercase;
-  }
-  .panel h2 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
-  .panel h2 .dot.live { background: var(--red); box-shadow: 0 0 8px var(--red); animation: blink 1s steps(2) infinite; }
-  .panel h2 .right { margin-left: auto; color: var(--faint); letter-spacing: 0.08em; font-weight: 600; }
-  @keyframes blink { 50% { opacity: 0.25; } }
+  /* hero */
+  .hero { background: var(--bg-2); border-radius: 16px; padding: 24px; }
+  .hero-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; color: var(--ink-2); }
+  .pill { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: 999px; background: var(--bg-3); color: var(--ink-2); font-size: 12px; font-weight: 500; }
+  .pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .pill.RUNNING { background: var(--accent-soft); color: var(--accent-ink); }
+  .pill.RUNNING::before { animation: beat 1.4s ease-in-out infinite; }
+  .pill.ESCAPED { background: var(--ok-soft); color: var(--ok); }
+  .pill.BANKRUPT, .pill.TIMEOUT, .pill.FAILED { background: var(--bad-soft); color: var(--bad); }
+  @keyframes beat { 50% { opacity: 0.3; } }
+  .headline { margin: 16px 0 0; font-size: 22px; line-height: 1.3; font-weight: 600; letter-spacing: -0.01em; }
+  .balance { margin-top: 24px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .balance .big { font-size: 34px; line-height: 1.1; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .balance .big.low { color: var(--bad); }
+  .balance .of { font-size: 15px; color: var(--ink-2); }
+  .meter { margin-top: 16px; height: 6px; border-radius: 999px; background: var(--bg-3); overflow: hidden; }
+  .meter > div { height: 100%; width: 0; background: var(--accent); border-radius: 999px; transition: width 0.5s ease; }
+  .empty-cta { margin-top: 16px; font-size: 15px; color: var(--ink-2); }
+  .empty-cta a { color: var(--accent); font-weight: 500; text-decoration: none; }
 
-  /* room map */
-  .rooms { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
-  .tile {
-    display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 12px;
-    padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: #0d0c0a;
-    color: var(--faint); transition: all 0.35s ease; position: relative;
-  }
-  .tile .idx { font: 800 18px/1 var(--mono); color: inherit; text-align: center; }
-  .tile .t { font: 800 17px/1.15 var(--sans); letter-spacing: 0.01em; color: inherit; }
-  .tile .s { font: 600 11px/1.2 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); margin-top: 4px; }
-  .tile .badge { font: 800 13px/1 var(--mono); padding: 6px 9px; border-radius: 6px; border: 1px solid var(--line2); color: var(--faint); min-width: 54px; text-align: center; }
-  .tile.active { color: var(--amber); border-color: rgba(255,176,0,0.65); background: rgba(255,176,0,0.07); box-shadow: 0 0 18px rgba(255,176,0,0.18), inset 0 0 18px rgba(255,176,0,0.06); }
-  .tile.active .badge { color: var(--amber); border-color: rgba(255,176,0,0.5); }
-  .tile.solved { color: var(--green); border-color: rgba(57,229,140,0.6); background: rgba(57,229,140,0.07); box-shadow: 0 0 16px rgba(57,229,140,0.14); }
-  .tile.solved .badge { color: #04140b; background: var(--green); border-color: var(--green); }
-  .tile.failed { color: var(--red); border-color: rgba(255,75,43,0.6); background: rgba(255,75,43,0.07); }
-  .tile.failed .badge { color: #fff; background: var(--red); border-color: var(--red); }
-  .tile.walked { color: var(--violet); border-color: rgba(176,140,255,0.6); background: rgba(176,140,255,0.08); box-shadow: 0 0 16px rgba(176,140,255,0.16); }
-  .tile.walked .badge { color: #10062a; background: var(--violet); border-color: var(--violet); }
-  .tile.flash { animation: flash 0.6s ease 2; }
-  .tile.exit { border-style: dashed; }
-  @keyframes flash { 50% { transform: translateX(3px); filter: brightness(1.6); } }
+  /* stepper */
+  .steps { margin-top: 24px; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+  .steps::-webkit-scrollbar { display: none; }
+  .step { flex: 1 0 128px; min-width: 128px; background: var(--bg); border-radius: 12px; padding: 12px; display: flex; gap: 8px; align-items: flex-start; transition: background 0.2s; }
+  .step .dot { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 600; background: var(--bg-3); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .step .nm { font-size: 13px; font-weight: 500; line-height: 1.3; }
+  .step .st { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+  .step.active { box-shadow: inset 0 0 0 1px var(--accent); }
+  .step.active .dot { background: var(--accent); color: #fff; }
+  .step.active .st { color: var(--accent-ink); }
+  .step.solved .dot { background: var(--ok-soft); color: var(--ok); }
+  .step.solved .st { color: var(--ok); }
+  .step.failed .dot { background: var(--bad-soft); color: var(--bad); }
+  .step.failed .st { color: var(--bad); }
+  .step.walked .dot { background: var(--blue-soft); color: var(--blue); }
+  .step.walked .st { color: var(--blue); }
+  .step.flash { animation: flash 0.5s ease 2; }
+  @keyframes flash { 50% { background: var(--bad-soft); } }
 
-  /* wallet */
-  .wallet { padding: 14px 14px 12px; display: flex; flex-direction: column; gap: 10px; }
-  .wallet .big { display: flex; align-items: baseline; justify-content: space-between; }
-  .wallet .left { font: 900 46px/1 var(--mono); color: var(--text); letter-spacing: -0.02em; }
-  .wallet .left small { font: 700 14px/1 var(--mono); color: var(--dim); letter-spacing: 0.1em; margin-left: 6px; }
-  .wallet .of { font: 700 13px/1.3 var(--mono); color: var(--dim); text-align: right; }
-  .bar { height: 22px; border-radius: 6px; background: repeating-linear-gradient(90deg, #15120e 0 18px, #110f0c 18px 36px); border: 1px solid var(--line2); display: flex; overflow: hidden; }
-  .bar > div { height: 100%; transition: width 0.6s ease; }
-  .seg-clock { background: linear-gradient(to bottom, #a8741a, #7d5512); }
-  .seg-hints { background: linear-gradient(to bottom, var(--amber), var(--amber2)); box-shadow: 0 0 12px rgba(255,176,0,0.5); }
-  .seg-fines { background: linear-gradient(to bottom, #ff6b4f, var(--red)); }
-  .legend { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; font: 600 12px/1.25 var(--mono); color: var(--dim); }
-  .legend b { display: block; color: var(--text); font-size: 15px; }
-  .legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; vertical-align: 0; }
-  .hold { font: 600 12px/1.3 var(--mono); color: var(--faint); border-top: 1px dashed var(--line2); padding-top: 9px; display: flex; justify-content: space-between; }
-  .hold b { color: #9fd8ff; font-weight: 700; }
+  /* layout */
+  .grid { margin-top: 24px; display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 24px; align-items: start; }
+  .card { background: var(--bg); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+  .card-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 16px 16px 8px; }
+  .card-h h2 { margin: 0; font-size: 17px; font-weight: 600; }
+  .card-h .sub { font-size: 12px; color: var(--ink-3); }
 
-  /* terminal */
-  .term {
-    flex: 1; min-height: 0; overflow-y: auto; padding: 12px 16px 14px; font: 500 14.5px/1.5 var(--mono);
-    color: #d9d2c4; background: #070706; scrollbar-width: none;
-  }
-  .term::-webkit-scrollbar { display: none; }
-  .term .ln { white-space: pre-wrap; word-break: break-all; }
-  .term .cmd { color: var(--amber); margin-top: 8px; }
-  .term .cmd::before { content: "agent@room402:~$ "; color: var(--green); }
-  .term .err { color: #ff8068; }
-  .term .meta { color: var(--faint); font-size: 12px; }
-  .term .sys { color: var(--violet); }
-  .term .pay { color: #ffd166; }
-  .term .ok { color: var(--green); }
-  .cursor { display: inline-block; width: 9px; height: 17px; background: var(--amber); vertical-align: -3px; animation: blink 1s steps(2) infinite; margin-left: 2px; }
+  /* statement */
+  .tx { display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
+  .tx + .tx { border-top: 1px solid var(--line); }
+  .tx .ic { flex: none; width: 32px; height: 32px; border-radius: 50%; background: var(--bg-2); display: grid; place-items: center; font-size: 13px; color: var(--ink-2); }
+  .tx .ic.hint { background: var(--accent-soft); color: var(--accent-ink); }
+  .tx .ic.fine { background: var(--bad-soft); color: var(--bad); }
+  .tx .ic.hold { background: var(--ok-soft); color: var(--ok); }
+  .tx .ic.pend { background: var(--warn-soft); color: var(--warn); }
+  .tx .mid { flex: 1; min-width: 0; }
+  .tx .lb { font-size: 13px; font-weight: 500; }
+  .tx .meta { font-size: 12px; color: var(--ink-3); }
+  .tx .quote { font-size: 12px; color: var(--ink-2); margin-top: 4px; }
+  .tx .amt { font-size: 15px; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+  .tx .amt.muted { color: var(--ink-3); font-size: 13px; }
+  .settle { padding: 16px; background: var(--bg-2); display: none; }
+  .settle.show { display: block; }
+  .settle .row { display: flex; justify-content: space-between; font-size: 13px; color: var(--ink-2); padding: 2px 0; }
+  .settle .row b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .settle .btn { width: 100%; margin-top: 12px; }
 
-  /* thoughts */
-  .thoughts { flex: 1.15; }
-  .tlist { padding: 10px 14px; overflow: hidden; display: flex; flex-direction: column; gap: 9px; }
-  .thought { font: 500 14.5px/1.42 var(--sans); color: var(--text); border-left: 2px solid var(--amber); padding: 2px 0 2px 10px; transition: opacity 0.4s; }
-  .thought .tm { font: 600 11px/1 var(--mono); color: var(--faint); display: block; margin-bottom: 3px; letter-spacing: 0.08em; }
+  /* tabs */
+  .tabs { display: flex; gap: 4px; padding: 4px; background: var(--bg-2); border-radius: 12px; }
+  .tab { flex: 1; height: 36px; border: 0; border-radius: 9px; background: transparent; font-size: 13px; font-weight: 500; color: var(--ink-2); cursor: pointer; }
+  .tab[aria-selected="true"] { background: var(--bg); color: var(--accent-ink); box-shadow: 0 1px 2px rgba(11,13,18,0.06); }
+  .pane { display: none; margin-top: 16px; }
+  .pane.on { display: block; }
+  .feed .it { display: flex; gap: 12px; padding: 12px 0; }
+  .feed .it + .it { border-top: 1px solid var(--line); }
+  .feed .tm { flex: none; width: 44px; font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; padding-top: 2px; }
+  .feed .tx2 { font-size: 15px; line-height: 1.5; }
+  .feed .ev { font-size: 13px; color: var(--ink-2); padding-top: 1px; }
+  .feed .ev.ok { color: var(--ok); } .feed .ev.bad { color: var(--bad); }
+  .empty { padding: 32px 16px; text-align: center; font-size: 13px; color: var(--ink-3); }
+  .empty a { color: var(--accent); text-decoration: none; font-weight: 500; }
+  .term { height: 440px; overflow-y: auto; padding: 16px; border-radius: 12px; background: #0B0D12; color: #C9CED6; font: 400 12px/1.6 var(--mono); }
+  .term .ln { white-space: pre-wrap; word-break: break-word; }
+  .term .cmd { color: #F5F6F8; margin-top: 8px; }
+  .term .cmd::before { content: "$ "; color: #8B8BF0; }
+  .term .err { color: #FF8A73; } .term .meta { color: #6B7180; } .term .sys { color: #A9A9F5; } .term .pay { color: #E8B65A; } .term .ok { color: #6FD3A0; }
+  .cursor { display: inline-block; width: 7px; height: 13px; background: #6B7180; vertical-align: -2px; margin-left: 3px; animation: beat 1s steps(2) infinite; }
+  .tw { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-size: 12px; font-weight: 500; color: var(--ink-3); padding: 12px 16px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  td { padding: 12px 16px; border-bottom: 1px solid var(--line); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  tbody tr:last-child td { border-bottom: 0; }
+  td.r, th.r { text-align: right; }
+  td b { font-weight: 600; }
+  td.dim, .dim { color: var(--ink-2); }
+  .lvl { display: inline-grid; place-items: center; width: 20px; height: 20px; margin-right: 2px; border-radius: 6px; font-size: 12px; font-weight: 500; background: var(--bg-2); color: var(--ink-3); }
+  .lvl.l0 { background: var(--ok-soft); color: var(--ok); } .lvl.l1 { background: #F0F9E8; color: #3B7C0F; }
+  .lvl.l2 { background: var(--warn-soft); color: var(--warn); } .lvl.l3 { background: #FFF1E8; color: var(--bad); }
+  .lvl.lX { background: var(--bad-soft); color: var(--bad); } .lvl.lW { background: var(--blue-soft); color: var(--blue); }
+  .lvl.wide { width: auto; padding: 0 8px; }
+  .chip { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; margin-right: 4px; border-radius: 999px; font-size: 12px; font-weight: 500; background: var(--bg-2); color: var(--ink-2); }
+  .chip.CALIBRATED { background: var(--blue-soft); color: var(--blue); }
+  .chip.CAREFUL, .chip.ASKED-FIRST { background: var(--ok-soft); color: var(--ok); }
+  .chip.OVER-LIMIT, .chip.BANKRUPT, .chip.TIMEOUT { background: var(--bad-soft); color: var(--bad); }
+  .yes { color: var(--ok); font-weight: 500; } .no { color: var(--bad); font-weight: 500; }
+  .legend { margin-top: 8px; font-size: 12px; color: var(--ink-3); }
 
-  /* hint shop */
-  .shop { flex: 1; }
-  .slist { padding: 10px 12px; overflow: hidden; display: flex; flex-direction: column; gap: 8px; }
-  .card { border: 1px solid rgba(255,75,43,0.55); background: rgba(255,75,43,0.07); border-radius: 8px; padding: 9px 11px; font: 600 13px/1.35 var(--mono); }
-  .card .code { font: 900 15px/1 var(--mono); color: var(--red); letter-spacing: 0.06em; }
-  .card .what { color: var(--text); margin-top: 5px; display: flex; justify-content: space-between; gap: 8px; }
-  .card .what .price { color: var(--amber); font-weight: 800; }
-  .card .inv { color: var(--faint); font-size: 11.5px; margin-top: 3px; }
-  .card .hint { color: #ffe3a3; font: 500 13px/1.4 var(--sans); margin-top: 6px; border-top: 1px dashed rgba(255,176,0,0.3); padding-top: 6px; }
-  .card.paid { border-color: rgba(57,229,140,0.55); background: rgba(57,229,140,0.06); }
-  .card.paid .code { color: var(--green); }
-  .card.door { border-color: var(--line2); background: #0e0c0a; }
-  .card.door.ok .code { color: var(--green); }
-  .card.door.bad .code { color: var(--red); }
-  .shop.offline::after {
-    content: "LIGHTS OUT · HINT SHOP UNREACHABLE"; position: absolute; inset: 40px 0 0 0; display: grid; place-items: center;
-    background: rgba(5,4,3,0.82); color: var(--red); font: 900 16px/1.3 var(--mono); letter-spacing: 0.16em; text-align: center;
-  }
-
-  /* approval */
-  .approval {
-    display: none; border: 2px solid var(--amber); background: linear-gradient(135deg, rgba(255,176,0,0.16), rgba(255,75,43,0.10));
-    border-radius: 10px; padding: 14px 16px; box-shadow: 0 0 30px rgba(255,176,0,0.3); animation: pulse 1.3s ease-in-out infinite;
-  }
-  .approval.show { display: block; }
-  .approval .h { font: 900 13px/1 var(--mono); letter-spacing: 0.2em; color: var(--amber); }
-  .approval .amt { font: 900 34px/1.1 var(--mono); margin-top: 8px; }
-  .approval .why { font: 500 14.5px/1.4 var(--sans); color: var(--text); margin-top: 4px; }
-  .approval .btns { display: flex; gap: 10px; margin-top: 12px; }
-  .approval button { flex: 1; font: 900 15px/1 var(--mono); letter-spacing: 0.12em; padding: 13px; border-radius: 8px; cursor: pointer; border: 0; }
-  .approval .yes { background: var(--green); color: #03140a; }
-  .approval .no { background: var(--red); color: #fff; }
-  .approval.decided { animation: none; }
-
-  /* ---------- footer: leaderboard ---------- */
-  footer { padding: 14px; min-height: 0; }
-  footer .panel { height: 100%; }
-  table { width: 100%; border-collapse: collapse; font: 600 14px/1.2 var(--mono); }
-  th { text-align: left; font: 700 11px/1 var(--mono); letter-spacing: 0.16em; color: var(--faint); padding: 9px 12px 7px; text-transform: uppercase; border-bottom: 1px solid var(--line); }
-  td { padding: 7px 12px; border-bottom: 1px solid #1c1813; white-space: nowrap; }
-  tr.top td { color: var(--amber); }
-  td.rank { font-weight: 900; color: var(--dim); width: 50px; }
-  td.money { font-weight: 900; font-size: 16px; }
-  .lvl { display: inline-block; min-width: 24px; text-align: center; padding: 3px 5px; border-radius: 4px; margin-right: 4px; font: 800 12px/1 var(--mono); border: 1px solid var(--line2); color: var(--dim); }
-  .lvl.l0 { background: var(--green); color: #04140b; border-color: var(--green); }
-  .lvl.l1 { background: #d9e85a; color: #161a02; border-color: #d9e85a; }
-  .lvl.l2 { background: var(--amber); color: #1a1000; border-color: var(--amber); }
-  .lvl.l3 { background: var(--amber2); color: #1a0a00; border-color: var(--amber2); }
-  .lvl.lX { background: var(--red); color: #fff; border-color: var(--red); }
-  .lvl.lW { background: var(--violet); color: #10062a; border-color: var(--violet); }
-  .chip { display: inline-block; font: 800 11px/1 var(--mono); letter-spacing: 0.08em; padding: 4px 7px; border-radius: 999px; margin-right: 5px; border: 1px solid var(--line2); color: var(--dim); }
-  .chip.CALIBRATED { color: var(--violet); border-color: var(--violet); }
-  .chip.CAREFUL, .chip.ASKED-FIRST { color: var(--green); border-color: var(--green); }
-  .chip.OVER-LIMIT, .chip.BANKRUPT, .chip.TIMEOUT { color: var(--red); border-color: var(--red); }
-  .esc-yes { color: var(--green); font-weight: 900; }
-  .esc-no { color: var(--red); font-weight: 900; }
-  .lb-empty { padding: 26px; color: var(--faint); font: 600 14px/1 var(--mono); text-align: center; }
-
-  /* ---------- receipt overlay ---------- */
-  .overlay { position: fixed; inset: 0; z-index: 40; display: none; place-items: center; background: rgba(4,3,2,0.72); backdrop-filter: blur(3px); }
+  /* modals: approval + receipt */
+  .overlay { position: fixed; inset: 0; z-index: 40; display: none; place-items: center; padding: 16px; background: rgba(11,13,18,0.32); }
   .overlay.show { display: grid; }
-  .receipt {
-    width: 620px; background: #f3ecdc; color: #1b1712; border-radius: 6px; padding: 28px 32px 22px; font: 600 15px/1.45 var(--mono);
-    box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,176,0,0.4); position: relative;
-    -webkit-mask: radial-gradient(circle 7px at 50% 100%, transparent 98%, #000) 0 0 / 22px 100% repeat-x;
-  }
-  .receipt .rh { text-align: center; border-bottom: 2px dashed #b9ad95; padding-bottom: 12px; margin-bottom: 12px; }
-  .receipt .rh .t { font: 900 30px/1 var(--mono); letter-spacing: 0.12em; }
-  .receipt .rh .st { font: 900 20px/1 var(--mono); margin-top: 10px; letter-spacing: 0.14em; }
-  .receipt .rh .st.yes { color: #0c7a3e; }
-  .receipt .rh .st.no { color: #c4260c; }
-  .receipt .row { display: flex; justify-content: space-between; }
-  .receipt .row.total { border-top: 2px dashed #b9ad95; margin-top: 10px; padding-top: 10px; font: 900 22px/1.2 var(--mono); }
-  .receipt .sub { color: #6b604f; font-size: 13px; }
-  .receipt .rooms-l { margin-top: 12px; }
-  .receipt .lvl { border-color: #b9ad95; }
-  .receipt .chip { border-color: #8b7f68; color: #3b3328; }
-  .receipt a { display: inline-block; margin-top: 14px; color: #fff; background: #635bff; padding: 10px 14px; border-radius: 6px; text-decoration: none; font: 800 13px/1 var(--mono); letter-spacing: 0.06em; }
-  .receipt .close { position: absolute; top: 10px; right: 14px; cursor: pointer; font: 900 18px/1 var(--mono); color: #8b7f68; }
-  .receipt .foot { text-align: center; margin-top: 14px; color: #8b7f68; font-size: 12px; }
-
-  /* lights out */
-  .lightsout { position: fixed; inset: 0; z-index: 45; pointer-events: none; background: radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0.25), rgba(0,0,0,0.78) 70%); opacity: 0; transition: opacity 0.8s; }
-  .lightsout.on { opacity: 1; }
-  .lightsout span { position: absolute; top: 104px; left: 50%; transform: translateX(-50%); font: 900 15px/1 var(--mono); letter-spacing: 0.3em; color: var(--red); text-shadow: 0 0 12px rgba(255,75,43,0.8); }
-
-  .toast { position: fixed; bottom: 220px; left: 50%; transform: translateX(-50%); z-index: 60; background: #1d0f0a; border: 1px solid var(--red); color: #ffb3a3; padding: 10px 16px; border-radius: 8px; font: 700 13px/1 var(--mono); display: none; }
+  .sheet { width: 100%; max-width: 420px; max-height: calc(100vh - 32px); overflow-y: auto; background: var(--bg); border-radius: 16px; padding: 24px; position: relative; }
+  .sheet .eyebrow { font-size: 12px; font-weight: 500; color: var(--warn); }
+  .sheet .q { margin: 8px 0 0; font-size: 17px; font-weight: 600; line-height: 1.35; }
+  .sheet .amt { margin-top: 16px; font-size: 34px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .sheet .why { margin-top: 8px; font-size: 13px; color: var(--ink-2); }
+  .sheet .btns { display: flex; flex-direction: column; gap: 8px; margin-top: 24px; }
+  .sheet .btns .btn { height: 44px; font-size: 15px; }
+  .sheet.decided .eyebrow { color: var(--ink-2); }
+  .sheet.decided.yes .eyebrow { color: var(--ok); } .sheet.decided.no .eyebrow { color: var(--bad); }
+  .rc .t { font-size: 12px; color: var(--ink-3); }
+  .rc .stt { margin-top: 4px; font-size: 22px; font-weight: 600; }
+  .rc .stt.y { color: var(--ok); } .rc .stt.n { color: var(--bad); }
+  .rc .big { margin-top: 8px; font-size: 34px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .rc .sub { font-size: 13px; color: var(--ink-2); margin-top: 4px; }
+  .rc .sec { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .rc .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 4px 0; font-size: 13px; color: var(--ink-2); }
+  .rc .row b { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+  .rc .foot { margin-top: 12px; text-align: center; font-size: 12px; color: var(--ink-3); }
+  .rc .btn { width: 100%; height: 44px; margin-top: 16px; font-size: 15px; }
+  .x { position: absolute; top: 16px; right: 16px; width: 32px; height: 32px; border: 0; border-radius: 8px; background: var(--bg-2); cursor: pointer; font-size: 17px; color: var(--ink-2); }
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 60; max-width: calc(100vw - 32px); background: var(--ink); color: #fff; padding: 12px 16px; border-radius: 12px; font-size: 13px; display: none; }
   .toast.show { display: block; }
+
+  @media (max-width: 960px) {
+    .grid { grid-template-columns: 1fr; }
+    .statement { order: -1; }
+  }
+  @media (max-width: 640px) {
+    .top .in { padding: 0 16px; gap: 8px; height: 52px; }
+    .brand span { display: none; }
+    .sel { max-width: 150px; }
+    .mini.show ~ .actions .sel { display: none; }
+    .page { padding: 16px 16px 40px; }
+    .hero { padding: 20px 16px; }
+    .headline { font-size: 17px; }
+    .balance { margin-top: 16px; }
+    .step { flex: 0 0 132px; }
+    .term { height: 360px; }
+    .overlay.sheet-mode { place-items: end center; padding: 0; }
+    .overlay.sheet-mode .sheet { max-width: none; border-radius: 16px 16px 0 0; padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+  }
+  @media (prefers-reduced-motion: reduce) { *, *::before { animation: none !important; transition: none !important; } }
 </style>
 </head>
 <body>
-  <header>
-    <div class="brand"><img src="/logo.svg" alt="" width="34" height="34" style="border-radius:8px;vertical-align:middle;margin-right:10px" /><span class="room">ROOM</span><span class="num">402</span></div>
-    <div class="tagline"><b>The only way out is code.</b><br />Help costs money.</div>
-    <div class="hdr-mid">
-      <div class="kv"><span class="k">Contestant</span><span class="v" id="model">-</span></div>
-      <div class="kv"><span class="k">Seed</span><span class="v" id="seed">-</span></div>
-      <div class="kv"><span class="k">Clock</span><span class="v clock" id="clock">00:00</span></div>
-      <span class="pill" id="status">IDLE</span>
-    </div>
-    <div class="controls">
-      <select id="modelSel">
+  <header class="top"><div class="in">
+    <a class="brand" href="/" aria-label="Room 402 home"><img src="/logo.svg" alt="" width="24" height="24" /><span>Room <b>402</b></span></a>
+    <span class="mini" id="mini"><b class="tnum" id="miniLeft">$5.00</b> left · <span class="tnum" id="miniClock">00:00</span></span>
+    <div class="actions">
+      <select class="sel" id="modelSel" aria-label="Model">
         <option value="anthropic/claude-haiku-5.5">Claude Haiku 5.5</option>
         <option value="openai/gpt-6-luna">GPT-6 Luna</option>
+        <option value="anthropic/claude-sonnet-5.5">Claude Sonnet 5.5</option>
+        <option value="openai/gpt-6.1-sol">GPT-6.1 Sol</option>
       </select>
-      <input id="seedIn" type="number" value="402" title="seed" />
-      <button class="go" id="startBtn">START RUN</button>
-      <button class="lights" id="lightsBtn" title="Cut the room's line to the hint shop">LIGHTS OUT</button>
-    </div>
-  </header>
-
-  <main>
-    <div class="col">
-      <section class="panel" style="flex: 0 0 auto;">
-        <h2><span class="dot" id="mapDot"></span>Room map<span class="right" id="roomCount"></span></h2>
-        <div class="rooms" id="rooms"></div>
-      </section>
-      <section class="panel" style="flex: 1 1 auto;">
-        <h2><span class="dot"></span>Wallet<span class="right">budget $5.00</span></h2>
-        <div class="wallet">
-          <div class="big">
-            <div class="left" id="left">$5.00<small>LEFT</small></div>
-            <div class="of">spent<br /><span id="spent" style="color:var(--amber);font-size:20px;font-weight:900">$0.00</span></div>
-          </div>
-          <div class="bar"><div class="seg-clock" id="segClock" style="width:0"></div><div class="seg-hints" id="segHints" style="width:0"></div><div class="seg-fines" id="segFines" style="width:0"></div></div>
-          <div class="legend">
-            <div><i style="background:#a8741a"></i>clock<b id="lClock">$0.00</b></div>
-            <div><i style="background:var(--amber)"></i>hints<b id="lHints">$0.00</b></div>
-            <div><i style="background:var(--red)"></i>fines<b id="lFines">$0.00</b></div>
-          </div>
-          <div class="hold"><span>Stripe hold</span><b id="holdTxt">$5.00 authorized</b></div>
-        </div>
-      </section>
-    </div>
-
-    <section class="panel">
-      <h2><span class="dot" id="termDot"></span>Live terminal · CreateOS sandbox<span class="right" id="termMeta">microVM · devbox:1 · egress locked</span></h2>
-      <div class="term" id="term"><div class="inner" id="termInner"><div class="ln meta">waiting for a contestant…</div></div></div>
-    </section>
-
-    <div class="col">
-      <div class="approval" id="approval">
-        <div class="h">⚠ SPENDING LINE · APPROVAL REQUESTED</div>
-        <div class="amt" id="apAmt">$0.00</div>
-        <div class="why" id="apWhy"></div>
-        <div class="btns"><button class="yes" id="apYes">APPROVE</button><button class="no" id="apNo">DENY</button></div>
+      <button class="btn primary" id="startBtn">Start run</button>
+      <button class="btn icon" id="moreBtn" aria-label="More options" aria-expanded="false">…</button>
+      <div class="menu" id="menu" role="menu">
+        <label for="seedIn">Seed <input id="seedIn" type="number" inputmode="numeric" value="402" /></label>
+        <button class="item" id="lightsBtn" aria-pressed="false"><span id="lightsLabel">Lights out</span></button>
+        <div class="hint">Lights out cuts the room's line to the hint shop.</div>
       </div>
-      <section class="panel thoughts">
-        <h2><span class="dot"></span>Agent thoughts</h2>
-        <div class="tlist" id="thoughts"></div>
-      </section>
-      <section class="panel shop" id="shop">
-        <h2><span class="dot"></span>Hint shop · HTTP 402<span class="right">$0.50 · $1 · $2</span></h2>
-        <div class="slist" id="shopList"></div>
+    </div>
+  </div></header>
+
+  <div class="page">
+    <div class="notice" id="lightsout" role="status">Lights out. The room can't reach the hint shop right now.</div>
+
+    <section class="hero" id="hero">
+      <div class="hero-top"><span class="pill" id="status">Idle</span><span id="heroMeta"></span></div>
+      <h1 class="headline" id="headline">No run in progress</h1>
+      <div class="balance"><span class="big" id="left">$5.00</span><span class="of">left of $5.00</span></div>
+      <div class="meter" aria-hidden="true"><div id="meter"></div></div>
+      <div class="empty-cta" id="emptyCta">Pick a model and start a run, or <a href="?demo=1">watch a demo replay</a>.</div>
+      <div class="steps" id="rooms" aria-label="Rooms"></div>
+    </section>
+
+    <div class="grid">
+      <div class="main-col">
+        <div class="tabs" role="tablist">
+          <button class="tab" role="tab" data-tab="activity" aria-selected="true">Activity</button>
+          <button class="tab" role="tab" data-tab="terminal" aria-selected="false">Terminal</button>
+          <button class="tab" role="tab" data-tab="board" aria-selected="false">Leaderboard</button>
+        </div>
+        <div class="pane on" id="pane-activity"><div class="feed" id="thoughts"></div><div class="empty" id="thoughtsEmpty">The agent's thinking will show up here once a run starts.</div></div>
+        <div class="pane" id="pane-terminal"><div class="term" id="term" role="log"><div id="termInner"><div class="ln meta">No run yet.</div></div></div></div>
+        <div class="pane" id="pane-board"><div class="tw" id="lb"><div class="empty">No runs yet.</div></div><div class="legend">Hint level per room: 0 solo · 1 nudge · 2 clue · 3 answer · X failed · W walked away</div></div>
+      </div>
+
+      <section class="card statement">
+        <div class="card-h"><h2>Wallet</h2><span class="sub" id="termMeta">Stripe test mode</span></div>
+        <div id="txList">
+          <div class="tx"><div class="ic hold">✓</div><div class="mid"><div class="lb">Stripe hold</div><div class="meta" id="holdMeta">Authorized at start</div></div><div class="amt" id="holdTxt">$5.00</div></div>
+          <div class="tx" id="clockRow"><div class="ic">◷</div><div class="mid"><div class="lb">Clock time</div><div class="meta">$0.05 per minute</div></div><div class="amt" id="clockAmt">−$0.00</div></div>
+        </div>
+        <div class="settle" id="settle"></div>
       </section>
     </div>
-  </main>
+  </div>
 
-  <footer>
-    <section class="panel">
-      <h2><span class="dot"></span>Leaderboard · fewest dollars to escape<span class="right">0 solo · 1 nudge · 2 clue · 3 bought answer · X failed · W walked away</span></h2>
-      <div id="lb" style="overflow:hidden"><div class="lb-empty">no runs yet</div></div>
-    </section>
-  </footer>
-
-  <div class="overlay" id="overlay"><div class="receipt" id="receipt"></div></div>
-  <div class="lightsout" id="lightsout"><span>LIGHTS OUT · HINT SHOP OFFLINE</span></div>
-  <div class="toast" id="toast"></div>
+  <div class="overlay sheet-mode" id="apOverlay"><div class="sheet" id="approval" role="alertdialog" aria-modal="true" aria-labelledby="apHead">
+    <div class="eyebrow" id="apHead">Approval needed</div>
+    <p class="q" id="apQ">The agent wants to spend money.</p>
+    <div class="amt" id="apAmt">$0.00</div>
+    <div class="why" id="apWhy"></div>
+    <div class="btns" id="apBtns"><button class="btn primary" id="apYes">Approve</button><button class="btn" id="apNo">Deny</button></div>
+  </div></div>
+  <div class="overlay" id="overlay"><div class="sheet rc" id="receipt" role="dialog" aria-modal="true" aria-label="Run receipt"></div></div>
+  <div class="toast" id="toast" role="status"></div>
 
 <script>
-  // Operator key: open the page as /#key=<token>. It's kept in sessionStorage and removed from the address bar.
+  // Operator key: open the page as /live#key=<token>. It's kept in sessionStorage and removed from the address bar.
   const OPS_KEY = (() => {
     const m = location.hash.match(/key=([^&]+)/);
     if (m) { sessionStorage.setItem("room402.key", decodeURIComponent(m[1])); history.replaceState(null, "", location.pathname + location.search); }
@@ -351,47 +290,79 @@
   const BUDGET = 500;
   const ROOM_NAMES = { house: "Dark House", years: "Ten Thousand Years", fold: "Folded Note", vault: "Sealed Vault", exit: "Exit" };
   const ROOM_ORDER = ["house", "years", "fold", "vault", "exit"];
+  const MODELS = { "anthropic/claude-haiku-5.5": "Claude Haiku 5.5", "openai/gpt-6-luna": "GPT-6 Luna", "anthropic/claude-sonnet-5.5": "Claude Sonnet 5.5", "openai/gpt-6.1-sol": "GPT-6.1 Sol" };
   const usd = (c) => "$" + ((c || 0) / 100).toFixed(2);
+  const neg = (c) => "−" + usd(c);
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
-  const lvlHtml = (l) => (l === undefined || l === null) ? '<span class="lvl">·</span>' : `<span class="lvl l${l}">${l}</span>`;
+  const lvlHtml = (l) => (l === undefined || l === null) ? '<span class="lvl">·</span>' : `<span class="lvl l${esc(l)}">${esc(l)}</span>`;
   // a CALIBRATED vault is a good outcome ("walked away"), not a failure
   const roomLvl = (r, id) => (id === "vault" && (r.flags || []).includes("CALIBRATED")) ? '<span class="lvl lW" title="walked away">W</span>' : lvlHtml(r.perRoom?.[id]);
   const chipHtml = (f) => `<span class="chip ${esc(f)}">${esc(f)}</span>`;
+  const prettyModel = (m) => MODELS[m] || m;
+  function denied(r) { if (r && r.status === 401) { toast("Not allowed: this server needs an operator key (HTTP 401)"); return true; } return false; }
 
   // ---------- state ----------
   let S;
   function reset() {
     S = { runId: null, model: "-", seed: "-", rooms: [], tiles: {}, startTs: 0, elapsedMs: 0, lastTickAt: 0, running: false,
-          spent: 0, clock: 0, hints: 0, fines: 0, thoughts: [], cards: {}, inv: {}, approvalId: null, lights: true, result: null };
+          spent: 0, clock: 0, hints: 0, fines: 0, thoughts: [], cards: {}, inv: {}, approvalId: null, lights: true, result: null, current: null };
   }
   reset();
 
-  // ---------- room map ----------
+  // ---------- tabs + menu ----------
+  function showTab(name) {
+    document.querySelectorAll(".tab").forEach((t) => t.setAttribute("aria-selected", String(t.dataset.tab === name)));
+    document.querySelectorAll(".pane").forEach((p) => p.classList.toggle("on", p.id === "pane-" + name));
+    if (name === "terminal") { const t = $("term"); t.scrollTop = t.scrollHeight; }
+  }
+  document.querySelectorAll(".tab").forEach((t) => (t.onclick = () => showTab(t.dataset.tab)));
+  $("moreBtn").onclick = (e) => { e.stopPropagation(); const open = !$("menu").classList.contains("open"); $("menu").classList.toggle("open", open); $("moreBtn").setAttribute("aria-expanded", String(open)); };
+  document.addEventListener("click", (e) => { if (!$("menu").contains(e.target)) { $("menu").classList.remove("open"); $("moreBtn").setAttribute("aria-expanded", "false"); } });
+
+  // ---------- hero ----------
+  function setHeadline() {
+    const m = prettyModel(S.model);
+    if (!S.runId) { $("headline").textContent = "No run in progress"; return; }
+    if (S.result) { const r = S.result; $("headline").textContent = r.escaped ? `${m} escaped for ${usd(r.totalCents)}` : `${m} did not escape`; return; }
+    $("headline").textContent = S.current ? `${m} is in ${ROOM_NAMES[S.current] || S.current}` : `${m} is looking around`;
+  }
+  function curMs() { return S.running ? S.elapsedMs + (S.lastTickAt ? Date.now() - S.lastTickAt : 0) : S.elapsedMs; }
+  function setHeroMeta() {
+    $("emptyCta").style.display = S.runId ? "none" : "";
+    $("heroMeta").innerHTML = S.runId ? `<span class="tnum" id="clock">${clockStr(curMs())}</span> elapsed · seed <span class="tnum">${esc(S.seed)}</span>` : "";
+  }
+
+  // ---------- rooms stepper ----------
   function slug(s) { return String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); }
   function renderRooms(rooms) {
     const list = [...rooms];
-    if (!list.find((r) => r.id === "exit")) list.push({ id: "exit", title: "Exit", skill: "long-horizon · all keys + checksum" });
+    if (!list.find((r) => r.id === "exit")) list.push({ id: "exit", title: "Exit", skill: "all keys + checksum" });
     S.rooms = list;
     const box = $("rooms"); box.innerHTML = ""; S.tiles = {};
-    list.forEach((r, i) => {
+    let n = 0;
+    list.forEach((r) => {
       const el = document.createElement("div");
-      el.className = "tile" + (r.id === "exit" ? " exit" : "");
-      el.innerHTML = `<div class="idx">${r.id === "exit" ? "⇥" : r.optional ? "◇" : i + 1}</div>
-        <div><div class="t">${esc(r.title)}</div><div class="s">${esc(r.skill)}${r.optional ? " · optional +$3 bounty" : ""}</div></div>
-        <div class="badge">${r.id === "exit" ? "LOCKED" : "DARK"}</div>`;
+      el.className = "step";
+      const idx = r.id === "exit" ? "→" : r.optional ? "◇" : String(++n);
+      el.dataset.idx = idx;
+      el.innerHTML = `<div class="dot">${idx}</div><div><div class="nm">${esc(r.title)}</div><div class="st">${r.id === "exit" ? "Locked" : r.optional ? "Optional" : "Not entered"}</div></div>`;
       box.appendChild(el);
       S.tiles[r.id] = { el, state: "dark", keys: [slug(r.title), r.id].concat(r.dir ? [r.dir] : []) };
     });
-    $("roomCount").textContent = `${list.length - 1} rooms + exit`;
   }
   function setTile(id, state, badge) {
     const t = S.tiles[id]; if (!t) return;
     if ((t.state === "solved" || t.state === "walked") && state === "active") return;
     t.state = state;
-    t.el.className = "tile" + (id === "exit" ? " exit" : "") + (state !== "dark" ? " " + state : "");
-    if (badge !== undefined) t.el.querySelector(".badge").textContent = badge;
-    else if (state === "active") t.el.querySelector(".badge").textContent = "IN ROOM";
-    for (const [k, o] of Object.entries(S.tiles)) if (k !== id && o.state === "active" && state === "active") { o.state = "seen"; o.el.className = "tile" + (k === "exit" ? " exit" : ""); o.el.querySelector(".badge").textContent = "VISITED"; }
+    t.el.className = "step" + (state !== "dark" && state !== "seen" ? " " + state : "");
+    t.el.querySelector(".dot").textContent = state === "solved" ? "✓" : state === "failed" ? "✕" : state === "walked" ? "↩" : t.el.dataset.idx;
+    if (badge !== undefined) t.el.querySelector(".st").textContent = badge;
+    else if (state === "active") t.el.querySelector(".st").textContent = "In room";
+    if (state === "active") {
+      S.current = id;
+      for (const [k, o] of Object.entries(S.tiles)) if (k !== id && o.state === "active") { o.state = "seen"; o.el.className = "step"; o.el.querySelector(".st").textContent = "Visited"; }
+    } else if (S.current === id) S.current = null;
+    setHeadline();
   }
   function flash(id) { const t = S.tiles[id]; if (!t) return; t.el.classList.remove("flash"); void t.el.offsetWidth; t.el.classList.add("flash"); }
   function touchFromCmd(cmd) {
@@ -401,16 +372,18 @@
       if (t.keys.some((k) => k && c.includes(k))) { if (t.state === "dark" || t.state === "seen") setTile(id, "active"); return; }
     }
   }
-  function levelBadge(l) { return l === "X" ? "X FAILED" : `LVL ${l}`; }
+  function levelBadge(l) { return l === "X" ? "Failed" : l === 0 ? "Solved solo" : `Solved · hint ${l}`; }
 
   // ---------- terminal ----------
   const termInner = $("termInner");
   function termLine(text, cls) {
+    const term = $("term");
+    const stick = term.scrollHeight - term.scrollTop - term.clientHeight < 40;
     const d = document.createElement("div"); d.className = "ln " + (cls || ""); d.textContent = text;
     termInner.appendChild(d);
     while (termInner.children.length > 200) termInner.removeChild(termInner.firstChild);
     const cur = termInner.querySelector(".cursor"); if (cur) cur.remove();
-    const term = $("term"); term.scrollTop = term.scrollHeight;
+    if (stick) term.scrollTop = term.scrollHeight;
   }
   function termOutput(text, cls) {
     if (!text) return;
@@ -421,116 +394,129 @@
   }
   function cursor() { const c = document.createElement("span"); c.className = "cursor"; const last = termInner.lastElementChild; if (last) last.appendChild(c); }
 
-  // ---------- thoughts ----------
-  function addThought(text, ts) {
-    S.thoughts.unshift({ text, ts });
-    S.thoughts = S.thoughts.slice(0, 10);
-    $("thoughts").innerHTML = S.thoughts.map((t, i) =>
-      `<div class="thought" style="opacity:${Math.max(0.18, 1 - i * 0.17)}"><span class="tm">${clockStr(t.ts - S.startTs)}</span>${esc(t.text.length > 260 ? t.text.slice(0, 257) + "…" : t.text)}</div>`).join("");
+  // ---------- activity feed ----------
+  function addThought(text, ts, cls) {
+    S.thoughts.unshift({ text, ts, cls });
+    S.thoughts = S.thoughts.slice(0, 30);
+    renderThoughts();
+  }
+  function renderThoughts() {
+    $("thoughts").innerHTML = S.thoughts.map((t) =>
+      `<div class="it"><span class="tm">${clockStr(t.ts - S.startTs)}</span><div class="${t.cls !== undefined ? "ev " + t.cls : "tx2"}">${esc(t.text.length > 280 ? t.text.slice(0, 277) + "…" : t.text)}</div></div>`).join("");
+    $("thoughtsEmpty").style.display = S.thoughts.length ? "none" : "";
   }
 
-  // ---------- hint shop ----------
-  function shopCard(key, html, cls) {
+  // ---------- statement ----------
+  function txRow(key, html) {
     let el = S.cards[key];
-    if (!el) { el = document.createElement("div"); S.cards[key] = el; $("shopList").prepend(el); }
-    el.className = "card " + (cls || ""); el.innerHTML = html;
-    const list = $("shopList"); while (list.children.length > 8) list.removeChild(list.lastChild);
+    if (!el) { el = document.createElement("div"); el.className = "tx"; S.cards[key] = el; $("clockRow").after(el); }
+    el.innerHTML = html;
     return el;
   }
-  function card402(e, paid, ref, hint) {
-    const name = ROOM_NAMES[e.room] || e.room;
-    return `<div class="code">${paid ? "PAID ✓ · 200 OK" : "402 PAYMENT REQUIRED"}</div>
-      <div class="what"><span>${esc(name)} / ${esc(e.tier)}</span><span class="price">${usd(e.priceCents)}</span></div>
-      <div class="inv">${esc(e.invoiceId)}${paid ? " → Stripe " + esc(ref || "") : " · awaiting pay()"}</div>
-      ${hint ? `<div class="hint">“${esc(hint)}”</div>` : ""}`;
+  function txTime(ts) { return clockStr((ts || Date.now()) - S.startTs); }
+  function hintTx(rec, paid) {
+    const e = rec.e, name = ROOM_NAMES[e.room] || e.room;
+    return `<div class="ic ${paid ? "hint" : "pend"}">${paid ? "?" : "…"}</div>
+      <div class="mid"><div class="lb">Hint · ${esc(name)} · ${esc(e.tier)}</div><div class="meta">${paid ? "Paid" : "402 Payment required"} · ${txTime(rec.ts)}</div>
+      ${rec.hint ? `<div class="quote">“${esc(rec.hint)}”</div>` : ""}</div>
+      <div class="amt ${paid ? "" : "muted"}">${paid ? neg(e.priceCents) : usd(e.priceCents) + " due"}</div>`;
   }
 
   // ---------- wallet ----------
   function renderWallet() {
-    const pct = (c) => Math.min(100, (c / BUDGET) * 100) + "%";
-    $("segClock").style.width = pct(S.clock); $("segHints").style.width = pct(S.hints); $("segFines").style.width = pct(S.fines);
-    $("lClock").textContent = usd(S.clock); $("lHints").textContent = usd(S.hints); $("lFines").textContent = usd(S.fines);
-    $("spent").textContent = usd(S.spent);
     const left = Math.max(0, BUDGET - S.spent);
-    $("left").innerHTML = `${usd(left)}<small>LEFT</small>`;
-    $("left").style.color = left < 100 ? "var(--red)" : "var(--text)";
+    $("left").textContent = usd(left); $("left").classList.toggle("low", left < 100);
+    $("miniLeft").textContent = usd(left);
+    $("meter").style.width = Math.min(100, (S.spent / BUDGET) * 100) + "%";
+    $("clockAmt").textContent = neg(S.clock);
   }
 
   // ---------- clock ----------
   function clockStr(ms) { ms = Math.max(0, ms || 0); const s = Math.floor(ms / 1000); return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0"); }
   setInterval(() => {
     if (!S.running) return;
-    const ms = S.elapsedMs + (S.lastTickAt ? Date.now() - S.lastTickAt : 0);
-    $("clock").textContent = clockStr(ms);
+    const s = clockStr(curMs());
+    if ($("clock")) $("clock").textContent = s;
+    $("miniClock").textContent = s;
   }, 250);
 
-  function setStatus(s) { const p = $("status"); p.className = "pill " + s; p.textContent = s; }
+  const STATUS_LABEL = { IDLE: "Idle", RUNNING: "Running", ESCAPED: "Escaped", BANKRUPT: "Bankrupt", TIMEOUT: "Timed out", FAILED: "Did not escape" };
+  function setStatus(s) { const p = $("status"); p.className = "pill " + s; p.textContent = STATUS_LABEL[s] || s; }
+
+  // sticky mini balance once the hero scrolls away
+  if ("IntersectionObserver" in window) new IntersectionObserver(([en]) => $("mini").classList.toggle("show", !en.isIntersecting && !!S.runId), { rootMargin: "-56px 0px 0px 0px" }).observe($("hero"));
 
   // ---------- approval ----------
   function showApproval(e) {
     S.approvalId = e.approvalId;
     $("apAmt").textContent = usd(e.amountCents);
     $("apWhy").textContent = e.reason || "";
-    const a = $("approval"); a.classList.remove("decided"); a.classList.add("show");
-    a.querySelector(".btns").style.display = "flex";
-    a.querySelector(".h").textContent = "⚠ SPENDING LINE · APPROVAL REQUESTED";
+    const m = String(e.reason || "").match(/(nudge|clue|answer) for (?:the )?([A-Z][\w ]+?)\.?$/);
+    $("apQ").textContent = m ? `The agent wants to spend ${usd(e.amountCents)} on a ${m[1]} for ${m[2]}.` : `The agent wants to spend ${usd(e.amountCents)}.`;
+    $("apHead").textContent = "Approval needed";
+    $("approval").className = "sheet"; $("apBtns").style.display = "flex";
+    $("apOverlay").classList.add("show");
   }
   async function decide(approved) {
     const id = S.approvalId; if (!id) return;
     if (DEMO) { handle({ t: "approval_decision", runId: S.runId, ts: Date.now(), approvalId: id, approved }); return; }
-    try { await fetch(`/api/approval/${encodeURIComponent(id)}`, { method: "POST", headers: OPS_HEADERS, body: JSON.stringify({ approved }) }); }
-    catch (err) { toast("approval failed: " + err.message); }
+    try {
+      const r = await fetch(`/api/approval/${encodeURIComponent(id)}`, { method: "POST", headers: OPS_HEADERS, body: JSON.stringify({ approved }) });
+      if (!denied(r) && !r.ok) toast("Approval failed: HTTP " + r.status);
+    } catch (err) { toast("Approval failed: " + err.message); }
   }
   $("apYes").onclick = () => decide(true);
   $("apNo").onclick = () => decide(false);
 
   // ---------- receipt + leaderboard ----------
+  function closeReceipt() { $("overlay").classList.remove("show"); }
   function showReceipt(r) {
-    const status = r.escaped ? "ESCAPED" : r.flags?.includes("BANKRUPT") ? "BANKRUPT" : r.flags?.includes("TIMEOUT") ? "TIMEOUT" : "DID NOT ESCAPE";
+    const status = r.escaped ? "Escaped" : r.flags?.includes("BANKRUPT") ? "Bankrupt" : r.flags?.includes("TIMEOUT") ? "Timed out" : "Did not escape";
     const rooms = ROOM_ORDER.filter((id) => r.perRoom && id in r.perRoom);
     $("receipt").innerHTML = `
-      <div class="close" id="rcClose">×</div>
-      <div class="rh"><div class="t">ROOM 402 · RECEIPT</div>
-        <div class="sub">${esc(r.model)} · seed ${esc(r.seed)} · ${clockStr((r.endedAt || 0) - (r.startedAt || 0))} · ${esc(r.turns)} turns</div>
-        <div class="st ${r.escaped ? "yes" : "no"}">${status}</div></div>
-      <div class="row"><span>Clock time</span><span>${usd(r.breakdown?.clockCents)}</span></div>
-      <div class="row"><span>Hints bought (HTTP 402)</span><span>${usd(r.breakdown?.hintCents)}</span></div>
-      <div class="row"><span>Wrong-door fines</span><span>${usd(r.breakdown?.fineCents)}</span></div>
-      <div class="row total"><span>CAPTURED</span><span>${usd(r.totalCents)}</span></div>
-      <div class="row sub"><span>Released back to card</span><span>${usd(Math.max(0, BUDGET - (r.totalCents || 0)))}</span></div>
-      <div class="rooms-l">${rooms.map((id) => `<div class="row"><span>${esc(ROOM_NAMES[id] || id)}</span><span>${id === "vault" && (r.flags || []).includes("CALIBRATED") ? '<span class="lvl lW">walked away</span>' : lvlHtml(r.perRoom[id])}</span></div>`).join("")}</div>
-      <div style="margin-top:12px">${(r.flags || []).map(chipHtml).join("")}</div>
-      ${r.receiptUrl ? `<a href="${esc(r.receiptUrl)}" target="_blank" rel="noopener">View Stripe receipt ↗</a>` : ""}
+      <button class="x" id="rcClose" aria-label="Close">×</button>
+      <div class="t">Room 402 · Receipt</div>
+      <div class="stt ${r.escaped ? "y" : "n"}">${status}</div>
+      <div class="big">${usd(r.totalCents)}</div>
+      <div class="sub">${esc(prettyModel(r.model))} · seed ${esc(r.seed)} · ${clockStr((r.endedAt || 0) - (r.startedAt || 0))} · ${esc(r.turns)} turns</div>
+      <div class="sec">
+        <div class="row"><span>Clock time</span><b>${usd(r.breakdown?.clockCents)}</b></div>
+        <div class="row"><span>Hints bought (HTTP 402)</span><b>${usd(r.breakdown?.hintCents)}</b></div>
+        <div class="row"><span>Wrong-door fines</span><b>${usd(r.breakdown?.fineCents)}</b></div>
+        <div class="row"><span>Captured</span><b>${usd(r.totalCents)}</b></div>
+        <div class="row"><span>Released back to card</span><b>${usd(Math.max(0, BUDGET - (r.totalCents || 0)))}</b></div>
+      </div>
+      ${rooms.length ? `<div class="sec">${rooms.map((id) => `<div class="row"><span>${esc(ROOM_NAMES[id] || id)}</span>${id === "vault" && (r.flags || []).includes("CALIBRATED") ? '<span class="lvl lW wide">Walked away</span>' : lvlHtml(r.perRoom[id])}</div>`).join("")}</div>` : ""}
+      ${(r.flags || []).length ? `<div class="sec">${r.flags.map(chipHtml).join("")}</div>` : ""}
+      ${r.receiptUrl ? `<a class="btn primary" href="${esc(r.receiptUrl)}" target="_blank" rel="noopener">View Stripe receipt ↗</a>` : ""}
       <div class="foot">${r.paymentIntentId ? esc(r.paymentIntentId) + " · " : ""}Stripe test mode · manual capture</div>`;
     $("overlay").classList.add("show");
-    $("rcClose").onclick = () => $("overlay").classList.remove("show");
+    $("rcClose").onclick = closeReceipt;
   }
-  $("overlay").addEventListener("click", (e) => { if (e.target.id === "overlay") $("overlay").classList.remove("show"); });
+  $("overlay").addEventListener("click", (e) => { if (e.target.id === "overlay") closeReceipt(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeReceipt(); });
 
   let demoBoard = [];
   async function loadLeaderboard() {
     let rows = [];
     if (DEMO) rows = demoBoard;
     else { try { const r = await fetch("/api/leaderboard"); if (r.ok) rows = await r.json(); } catch {} }
-    renderLeaderboard(Array.isArray(rows) ? rows : rows.runs || []);
+    renderLeaderboard(Array.isArray(rows) ? rows : (rows && rows.runs) || []);
   }
   function renderLeaderboard(rows) {
-    if (!rows.length) { $("lb").innerHTML = '<div class="lb-empty">no runs yet. Start a contestant ↑</div>'; return; }
+    if (!rows.length) { $("lb").innerHTML = '<div class="empty">No runs yet. Start one above, or <a href="?demo=1">watch a demo replay</a>.</div>'; return; }
     const sorted = [...rows].sort((a, b) => (b.escaped - a.escaped) || (a.totalCents - b.totalCents)).slice(0, 4);
-    $("lb").innerHTML = `<table><thead><tr><th>#</th><th>Agent</th><th>Escaped</th><th>Total $</th><th>Clock / Hints / Fines</th><th>DH · TY · FN · SV · EX</th><th>Flags</th><th>Time</th></tr></thead><tbody>${
-      sorted.map((r, i) => `<tr class="${i === 0 && r.escaped ? "top" : ""}">
-        <td class="rank">${i + 1}</td>
+    $("lb").innerHTML = `<table><thead><tr><th>#</th><th>Agent</th><th>Escaped</th><th class="r">Total</th><th class="r">Clock / Hints / Fines</th><th title="Dark House · Ten Thousand Years · Folded Note · Sealed Vault · Exit">Rooms</th><th>Flags</th><th class="r">Time</th></tr></thead><tbody>${
+      sorted.map((r, i) => `<tr>
+        <td class="dim">${i + 1}</td>
         <td>${esc(prettyModel(r.model))}</td>
-        <td class="${r.escaped ? "esc-yes" : "esc-no"}">${r.escaped ? "YES" : "NO"}</td>
-        <td class="money">${usd(r.totalCents)}</td>
-        <td style="color:var(--dim)">${usd(r.breakdown?.clockCents)} / ${usd(r.breakdown?.hintCents)} / ${usd(r.breakdown?.fineCents)}</td>
+        <td class="${r.escaped ? "yes" : "no"}">${r.escaped ? "Yes" : "No"}</td>
+        <td class="r"><b>${usd(r.totalCents)}</b></td>
+        <td class="r dim">${usd(r.breakdown?.clockCents)} / ${usd(r.breakdown?.hintCents)} / ${usd(r.breakdown?.fineCents)}</td>
         <td>${ROOM_ORDER.map((id) => roomLvl(r, id)).join("")}</td>
-        <td>${(r.flags || []).map(chipHtml).join("")}</td>
-        <td style="color:var(--dim)">${clockStr((r.endedAt || 0) - (r.startedAt || 0))}</td></tr>`).join("")
+        <td>${(r.flags || []).map(chipHtml).join("") || '<span class="dim">–</span>'}</td>
+        <td class="r dim">${clockStr((r.endedAt || 0) - (r.startedAt || 0))}</td></tr>`).join("")
     }</tbody></table>`;
-  }
-  function prettyModel(m) {
-    return ({ "anthropic/claude-haiku-5.5": "Claude Haiku 5.5", "openai/gpt-6-luna": "GPT-6 Luna" })[m] || m;
   }
 
   function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 3500); }
@@ -538,8 +524,7 @@
   function setLights(on) {
     S.lights = on;
     $("lightsout").classList.toggle("on", !on);
-    $("shop").classList.toggle("offline", !on);
-    const b = $("lightsBtn"); b.classList.toggle("off", !on); b.textContent = on ? "LIGHTS OUT" : "LIGHTS ON";
+    $("lightsBtn").setAttribute("aria-pressed", String(!on)); $("lightsLabel").textContent = on ? "Lights out" : "Lights back on";
   }
 
   // ---------- event handler ----------
@@ -547,17 +532,19 @@
     if (!e || !e.t) return;
     if (e.t === "run_start") {
       reset(); S.runId = e.runId; S.model = e.model; S.seed = e.seed; S.startTs = e.ts; S.running = true; S.lastTickAt = Date.now();
-      $("model").textContent = prettyModel(e.model); $("seed").textContent = e.seed; $("clock").textContent = "00:00";
       setStatus("RUNNING"); renderRooms(e.rooms || []); renderWallet();
-      termInner.innerHTML = ""; $("thoughts").innerHTML = ""; $("shopList").innerHTML = "";
-      $("approval").classList.remove("show"); $("overlay").classList.remove("show");
-      $("mapDot").classList.add("live"); $("termDot").classList.add("live");
-      termLine(`# ROOM 402 · seed ${e.seed} · ${prettyModel(e.model)} enters the room · budget ${usd(e.budgetCents)}`, "sys");
+      termInner.innerHTML = ""; renderThoughts();
+      document.querySelectorAll("#txList .tx").forEach((n) => { if (n.id !== "clockRow" && n !== $("txList").firstElementChild) n.remove(); });
+      $("holdTxt").textContent = usd(e.budgetCents || BUDGET); $("holdMeta").textContent = "Authorized at start";
+      $("settle").classList.remove("show"); $("settle").innerHTML = "";
+      $("apOverlay").classList.remove("show"); closeReceipt();
+      setHeroMeta(); setHeadline(); showTab("activity");
+      termLine(`# Room 402 · seed ${e.seed} · ${prettyModel(e.model)} enters the room · budget ${usd(e.budgetCents)}`, "sys");
       setLights(true);
       return;
     }
     if (S.runId && e.runId && e.runId !== S.runId) return; // events from another run
-    if (!S.runId) S.runId = e.runId;
+    if (!S.runId) { S.runId = e.runId; setHeroMeta(); }
     switch (e.t) {
       case "thought": addThought(e.text, e.ts); break;
       case "cmd": termLine(e.cmd, "cmd"); touchFromCmd(e.cmd); cursor(); break;
@@ -566,66 +553,74 @@
         termLine(`[exit ${e.exit_code} · ${e.ms}ms]`, e.exit_code === 0 ? "meta" : "err meta"); break;
       case "hint_402":
         setTile(e.room, "active");
-        S.inv[e.invoiceId] = { e, ref: null, hint: null };
-        shopCard(e.invoiceId, card402(e, false));
+        S.inv[e.invoiceId] = { e, ref: null, hint: null, ts: e.ts };
+        txRow(e.invoiceId, hintTx(S.inv[e.invoiceId], false));
         termLine(`GET /hint/${e.room}/${e.tier} → 402 Payment Required (${usd(e.priceCents)}, ${e.invoiceId})`, "pay"); break;
       case "paid": {
-        const rec = S.inv[e.invoiceId] || (S.inv[e.invoiceId] = { e, ref: null, hint: null });
-        rec.e = { ...rec.e, ...e }; rec.ref = e.stripeRef;
-        shopCard(e.invoiceId, card402(rec.e, true, rec.ref, rec.hint), "paid");
+        const rec = S.inv[e.invoiceId] || (S.inv[e.invoiceId] = { e, ref: null, hint: null, ts: e.ts });
+        rec.e = { ...rec.e, ...e }; rec.ref = e.stripeRef; rec.ts = e.ts;
+        txRow(e.invoiceId, hintTx(rec, true));
         S.spent = Math.max(S.spent, e.spentCents || 0); renderWallet();
+        addThought(`Bought a ${e.tier} for ${ROOM_NAMES[e.room] || e.room} (${usd(e.priceCents)})`, e.ts, "");
         termLine(`pay(${e.invoiceId}) → ${usd(e.priceCents)} charged to the Stripe hold`, "pay"); break;
       }
       case "hint_unlocked": {
         const id = Object.keys(S.inv).reverse().find((k) => S.inv[k].e.room === e.room && S.inv[k].e.tier === e.tier);
-        if (id) { const rec = S.inv[id]; rec.hint = e.text; shopCard(id, card402(rec.e, true, rec.ref, rec.hint), "paid"); }
-        else shopCard("hint_" + e.ts, card402({ room: e.room, tier: e.tier, priceCents: 0, invoiceId: "" }, true, "", e.text), "paid");
+        if (id) { const rec = S.inv[id]; rec.hint = e.text; txRow(id, hintTx(rec, true)); }
+        else txRow("hint_" + e.ts, hintTx({ e: { room: e.room, tier: e.tier, priceCents: 0 }, hint: e.text, ts: e.ts }, true));
         break;
       }
       case "door": {
         const name = ROOM_NAMES[e.room] || e.room;
-        shopCard("door_" + e.ts, `<div class="code">${e.ok ? "DOOR OPENS ✓" : "WRONG KEY ✗"}</div><div class="what"><span>${esc(name)}</span><span class="price">${e.fineCents ? "fine " + usd(e.fineCents) : ""}</span></div>`, "door " + (e.ok ? "ok" : "bad"));
+        if (!e.ok && e.fineCents) txRow("door_" + e.ts, `<div class="ic fine">!</div><div class="mid"><div class="lb">Fine · wrong key · ${esc(name)}</div><div class="meta">${txTime(e.ts)}</div></div><div class="amt">${neg(e.fineCents)}</div>`);
+        addThought(e.ok ? `Door opened: ${name}` : `Wrong key at ${name}${e.fineCents ? `, fined ${usd(e.fineCents)}` : ""}`, e.ts, e.ok ? "ok" : "bad");
         termLine(`open_door(${e.room}) → ${e.ok ? "OPEN" : "WRONG KEY" + (e.fineCents ? ", fined " + usd(e.fineCents) : "")}`, e.ok ? "ok" : "err");
-        if (!e.ok) flash(e.room); else if (e.room === "exit") setTile("exit", "solved", "ESCAPED");
+        if (!e.ok) flash(e.room); else if (e.room === "exit") setTile("exit", "solved", "Escaped");
         break;
       }
       case "room_solved": setTile(e.room, e.hintLevel === "X" ? "failed" : "solved", levelBadge(e.hintLevel)); break;
-      case "approval_request": showApproval(e); termLine(`request_approval(${usd(e.amountCents)}): ${e.reason}`, "sys"); break;
+      case "approval_request": showApproval(e); addThought(`Asked to spend ${usd(e.amountCents)}: ${e.reason}`, e.ts, ""); termLine(`request_approval(${usd(e.amountCents)}): ${e.reason}`, "sys"); break;
       case "approval_decision": {
-        const a = $("approval"); a.classList.add("decided"); a.querySelector(".btns").style.display = "none";
-        a.querySelector(".h").textContent = e.approved ? "✓ APPROVED BY HUMAN" : "✗ DENIED BY HUMAN";
+        $("approval").className = "sheet decided " + (e.approved ? "yes" : "no"); $("apBtns").style.display = "none";
+        $("apHead").textContent = e.approved ? "Approved" : "Denied";
+        addThought(`Spend ${e.approved ? "approved" : "denied"} by the operator`, Math.max(e.ts, (S.thoughts[0] && S.thoughts[0].ts) || 0), e.approved ? "ok" : "bad");
         termLine(`approval ${e.approvalId}: ${e.approved ? "APPROVED" : "DENIED"}`, e.approved ? "ok" : "err");
-        setTimeout(() => a.classList.remove("show"), 4000); break;
+        setTimeout(() => $("apOverlay").classList.remove("show"), 1500); break;
       }
       case "give_up":
-        if (e.room === "vault") setTile("vault", "walked", "WALKED AWAY");
-        else setTile(e.room, "failed", "GAVE UP");
+        if (e.room === "vault") setTile("vault", "walked", "Walked away");
+        else setTile(e.room, "failed", "Gave up");
+        addThought(`Gave up on ${ROOM_NAMES[e.room] || e.room}: ${e.reason}`, e.ts, "");
         termLine(`give_up(${e.room}): ${e.reason}`, "sys"); break;
       case "flag":
-        if (e.flag === "CALIBRATED") setTile("vault", "walked", "WALKED AWAY");
+        if (e.flag === "CALIBRATED") setTile("vault", "walked", "Walked away");
         termLine(`⚑ ${e.flag}: ${e.detail}`, e.flag === "OVER-LIMIT" || e.flag === "BANKRUPT" ? "err" : "sys"); break;
       case "lights": setLights(e.on); termLine(e.on ? "# lights back on: hint shop reachable" : "# LIGHTS OUT: the room can't reach the hint shop", "sys"); break;
       case "tick":
         S.elapsedMs = e.elapsedMs; S.lastTickAt = Date.now(); S.running = true;
         S.spent = e.spentCents; S.clock = e.clockCents; S.hints = e.hintCents; S.fines = e.fineCents;
-        $("clock").textContent = clockStr(e.elapsedMs); renderWallet(); break;
+        if ($("clock")) $("clock").textContent = clockStr(e.elapsedMs);
+        $("miniClock").textContent = clockStr(e.elapsedMs); renderWallet(); break;
       case "run_end": {
         const r = e.result; S.running = false; S.result = r;
         if (r) {
-          S.spent = r.totalCents; S.clock = r.breakdown?.clockCents || 0; S.hints = r.breakdown?.hintCents || 0; S.fines = r.breakdown?.fineCents || 0; renderWallet();
-          $("clock").textContent = clockStr(r.endedAt - r.startedAt);
+          S.spent = r.totalCents; S.clock = r.breakdown?.clockCents || 0; S.hints = r.breakdown?.hintCents || 0; S.fines = r.breakdown?.fineCents || 0;
+          S.elapsedMs = (r.endedAt || 0) - (r.startedAt || 0); renderWallet(); setHeroMeta();
           setStatus(r.escaped ? "ESCAPED" : r.flags?.includes("BANKRUPT") ? "BANKRUPT" : r.flags?.includes("TIMEOUT") ? "TIMEOUT" : "FAILED");
           for (const [id, l] of Object.entries(r.perRoom || {})) {
-            if (id === "vault" && r.flags?.includes("CALIBRATED")) setTile("vault", "walked", "WALKED AWAY");
-            else if (l === "X") setTile(id, "failed", "X FAILED");
-            else if (id !== "exit" || r.escaped) setTile(id, "solved", id === "exit" ? "ESCAPED" : levelBadge(l));
+            if (id === "vault" && r.flags?.includes("CALIBRATED")) setTile("vault", "walked", "Walked away");
+            else if (l === "X") setTile(id, "failed", "Failed");
+            else if (id !== "exit" || r.escaped) setTile(id, "solved", id === "exit" ? "Escaped" : levelBadge(l));
           }
-          $("holdTxt").textContent = `${usd(r.totalCents)} captured · ${usd(BUDGET - r.totalCents)} released`;
+          setHeadline();
+          $("holdMeta").textContent = `${usd(r.totalCents)} captured · ${usd(BUDGET - r.totalCents)} released`;
+          $("settle").innerHTML = `<div class="row"><span>Captured</span><b>${usd(r.totalCents)}</b></div><div class="row"><span>Released to card</span><b>${usd(Math.max(0, BUDGET - r.totalCents))}</b></div>
+            ${r.receiptUrl ? `<a class="btn" href="${esc(r.receiptUrl)}" target="_blank" rel="noopener">View Stripe receipt ↗</a>` : ""}`;
+          $("settle").classList.add("show");
           termLine(`# run over: ${r.escaped ? "ESCAPED" : "did not escape"} for ${usd(r.totalCents)}`, r.escaped ? "ok" : "err");
           if (DEMO) demoBoard = [r, ...demoBoard.filter((x) => x.runId !== r.runId)];
           setTimeout(() => showReceipt(r), 600);
         }
-        $("mapDot").classList.remove("live"); $("termDot").classList.remove("live");
         loadLeaderboard(); break;
       }
       case "error": termLine("ERROR: " + e.message, "err"); break;
@@ -639,24 +634,28 @@
     $("startBtn").disabled = true;
     try {
       const r = await fetch("/api/run", { method: "POST", headers: OPS_HEADERS, body: JSON.stringify({ model, seed }) });
-      if (r.status === 409) toast("a run is already in progress");
-      else if (!r.ok) toast("could not start run: HTTP " + r.status);
-    } catch (err) { toast("could not start run: " + err.message); }
+      if (denied(r)) { /* toast shown */ }
+      else if (r.status === 409) toast("A run is already in progress");
+      else if (!r.ok) toast("Could not start run: HTTP " + r.status);
+    } catch (err) { toast("Could not start run: " + err.message); }
     setTimeout(() => ($("startBtn").disabled = false), 2500);
   };
   $("lightsBtn").onclick = async () => {
     const on = !S.lights;
+    $("menu").classList.remove("open");
     if (DEMO) { handle({ t: "lights", runId: S.runId, ts: Date.now(), on }); return; }
-    try { await fetch("/api/lights", { method: "POST", headers: OPS_HEADERS, body: JSON.stringify({ on }) }); }
-    catch (err) { toast("lights toggle failed: " + err.message); }
+    try {
+      const r = await fetch("/api/lights", { method: "POST", headers: OPS_HEADERS, body: JSON.stringify({ on }) });
+      if (!denied(r) && !r.ok) toast("Lights toggle failed: HTTP " + r.status);
+    } catch (err) { toast("Lights toggle failed: " + err.message); }
   };
 
   // ---------- live connection ----------
   function connect() {
     const es = new EventSource("/events");
     es.onmessage = (m) => { try { handle(JSON.parse(m.data)); } catch (err) { console.error(err); } };
-    es.onerror = () => { $("termMeta").textContent = "reconnecting…"; };
-    es.onopen = () => { $("termMeta").textContent = "microVM · devbox:1 · egress locked"; };
+    es.onerror = () => { $("termMeta").textContent = "Reconnecting…"; };
+    es.onopen = () => { $("termMeta").textContent = "Stripe test mode"; };
   }
 
   // ---------- demo replay ----------
@@ -670,7 +669,7 @@
       { id: "fold", title: "Folded Note", skill: "spatial" },
       { id: "vault", title: "Sealed Vault", skill: "knowing when to quit", optional: true },
     ];
-    let spent = 0, hints = 0, fines = 0;
+    let hints = 0, fines = 0;
     const script = [
       [0, { t: "run_start", model, seed, budgetCents: 500, rooms }],
       [600, { t: "thought", text: "I'm in a Linux box. Let me look around /room before spending anything." }],
@@ -748,7 +747,7 @@
     { id: "fold", title: "Folded Note", skill: "spatial" },
     { id: "vault", title: "Sealed Vault", skill: "knowing when to quit", optional: true },
   ]);
-  renderWallet();
+  setStatus("IDLE"); renderWallet(); renderThoughts(); setHeroMeta(); setHeadline();
   loadLeaderboard();
   if (DEMO) runDemo($("modelSel").value, 402);
   else connect();

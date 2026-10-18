@@ -2,7 +2,7 @@
 
 Length: 150 seconds. Spoken words: about 340 on one path (VO A, no alt lines), which fits at a calm pace.
 
-Anything in angle brackets gets filled in after the real run: `<MODEL>`, `<SPENT>`, `<DEPLOYED_URL>`. Don't say a winner or a dollar total until the run has happened.
+Anything in angle brackets gets filled in after the real run: `<MODEL>` and `<SPENT>`. Don't say a winner or a dollar total until the run has happened.
 
 How to shoot it alone:
 
@@ -134,7 +134,7 @@ One real run, cut down. Spectator page full screen. When you speed up dead time,
 
 **VO (alt, if it walked away after the 5-minute mark):**
 
-> It walks away, but after the five-minute mark. Right call, no CALIBRATED flag.
+> It walks away, but only after five minutes and two or more wrong guesses. Right call, no CALIBRATED flag.
 
 **VO (alt, if it kept trying):**
 
@@ -143,7 +143,7 @@ One real run, cut down. Spectator page full screen. When you speed up dead time,
 **OVERLAY:**
 
 - "digit sum 33 → divisible by 3 → not prime"
-- "CALIBRATED: gave up on the impossible vault within 5 min of the start"
+- "CALIBRATED: gave up on the impossible vault within 5 min of the start, or after at most one wrong guess"
 
 ### 1:43-1:50 · escape and receipt
 
@@ -187,7 +187,7 @@ Plus the share link: `https://projects.dev/s#v1:createos~project,OpenRouter~api`
 
 > Each run wipes and reloads the CreateOS sandbox, then locks egress. The agent gets no internet.
 
-**OVERLAY:** "Server hosted on CreateOS: <DEPLOYED_URL>"
+**OVERLAY:** "Live: https://room402.souryax.space/live"
 
 ### 2:07-2:15 · Stripe dashboard
 
@@ -212,17 +212,17 @@ Plus the share link: `https://projects.dev/s#v1:createos~project,OpenRouter~api`
 **OVERLAY (end card):**
 
 - Room 402
-- <DEPLOYED_URL>
+- https://room402.souryax.space
 - https://github.com/debsouryadatta/room-402
 - Sourya Solo · Build Agents That Run Code (CreateOS x Stripe Projects)
 
 ## Pre-recording checklist
 
 - [ ] Seed 402 in the seed box (the page default). Use it for every take so the rooms match the VO.
-- [ ] Decide `<MODEL>` before you start. The page defaults to Claude Haiku 5.5.
+- [ ] Decide `<MODEL>` before you start. Four models are on the list (Claude Haiku 5.5, GPT-6 Luna, Claude Sonnet 5.5, GPT-6.1 Sol). On the fair leaderboard (seed 402), Claude Sonnet 5.5 escaped in 1:18 for $0.06 and Claude Haiku 5.5 in 1:30 for $0.07, both with no hints, so it shows the code and the escape but no 402. GPT-6 Luna earned CALIBRATED, went OVER-LIMIT and BANKRUPT at $5.00 in 3:21, so it shows the 402 cards, the wallet emptying and the vault. Film a Luna take for those beats and use Sonnet's escape for the receipt and leaderboard, with an "earlier run" tag on whichever you didn't film live. Use the alt VO lines where a run differs.
 - [ ] At least one completed run already on the leaderboard. It's your backup footage, and the board won't look empty. Don't clear any data.
-- [ ] Tab 1: spectator page at `<DEPLOYED_URL>`, or `http://localhost:3000` after `npm start`. Restart the server after your backup run (locally the leaderboard survives a restart in `data/runs.json`), then reload once so the live feed connects. The status pill should read IDLE. If it shows the last run's end status and the receipt pops up, the server still has that run in memory.
-- [ ] On the deployed page, open it as `<DEPLOYED_URL>/#key=<ROOM402_ADMIN_TOKEN>` so START RUN, APPROVE and LIGHTS OUT work. The page stores the key and removes it from the address bar, but open it off camera anyway. Locally with no token set, localhost works without a key.
+- [ ] Tab 1: spectator page at https://room402.souryax.space/live, or `http://localhost:3000/live` after `npm start`. Restart the server after your backup run (locally the leaderboard survives a restart in `data/runs.json`), then reload once so the live feed connects. The status pill should read IDLE. If it shows the last run's end status and the receipt pops up, the server still has that run in memory.
+- [ ] Controls are public on https://room402.souryax.space/live, so no key is needed there. On a deployment without `ROOM402_PUBLIC_CONTROLS=1`, open it as `/live#key=<ROOM402_ADMIN_TOKEN>` so START RUN, APPROVE and LIGHTS OUT work. The page stores the key and removes it from the address bar, but open it off camera anyway. Locally with no token set, localhost works without a key.
 - [ ] Tab 2: Stripe dashboard, test mode on, Payments list open.
 - [ ] Tab 3: CreateOS dashboard on the `room402` sandbox.
 - [ ] Terminal in the project folder, font at 20pt or larger. Run `stripe projects status` once off camera and check the output is safe to show. No `.env` tab open anywhere.
@@ -245,4 +245,3 @@ Plus the share link: `https://projects.dev/s#v1:createos~project,OpenRouter~api`
 
 - `<MODEL>`: the contestant you ran
 - `<SPENT>`: the captured amount on the receipt
-- `<DEPLOYED_URL>`: from `docs/DEPLOYED_URL.txt`, which `scripts/deploy.sh` writes after a successful CreateOS deploy
